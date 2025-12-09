@@ -1,6 +1,4 @@
-Excelente questão! O Método de Galerkin Descontínuo (DG) é muito adequado para as Equações de Euler.
-
-A seguir, apresento (em teoria) os passos de uma discretização básica de Euler compressível 1D (escoamento com temperatura) usando o DG.
+O Método de Galerkin Descontínuo (DG) é muito adequado para as Equações de Euler.
 
 As equações de Euler compressível 1D, que descrevem o escoamento de um fluido com efeitos de temperatura (energia), são um sistema de leis de conservação hiperbólicas:
 
