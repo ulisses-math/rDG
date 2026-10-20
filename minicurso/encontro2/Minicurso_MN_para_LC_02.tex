@@ -93,7 +93,7 @@ Células $K_j=[x_{j-1/2},x_{j+1/2}]$ de largura $h$, médias $\ub_j^{\,n}\approx
 \ub_j^{\,n+1}=\ub_j^{\,n}-\frac{\Delta t}{h}\Big(\Fh_{j+1/2}^{\,n}-\Fh_{j-1/2}^{\,n}\Big),\qquad
 \Fh_{j+1/2}^{\,n}=\Fh\big(\ub_j^{\,n},\ub_{j+1}^{\,n}\big),
 \]
-com \textbf{fluxo numérico} $\Fh(u_L,u_R)$ consistente, $\Fh(u,u)=f(u)$, e contínuo nos dois argumentos.
+com \textbf{fluxo numérico} $\Fh(u_L,u_R)$ contínuo nos dois argumentos e consistente: $\Fh(u,u)=f(u)$.
 \end{definicao}
 \begin{columns}[T]
 \begin{column}{0.5\textwidth}
@@ -195,7 +195,7 @@ $|A|$ dissipa cada onda com a sua própria $|\lambda_p|$: nem mais, nem menos. R
 % =====================================================================
 \section{O problema de Riemann}
 
-\begin{frame}{Burgers: choque ou rarefação, e o caso sônico}
+\begin{frame}{Burgers: choque, rarefação e o caso sônico}
 \begin{teorema}{Solução do problema de Riemann para $f$ convexa}
 \begin{itemize}
 \item $u_L>u_R$: \textbf{choque}, $u=u_L$ se $x<st$ e $u_R$ se $x>st$, com $s=\frac{f(u_R)-f(u_L)}{u_R-u_L}$ (Burgers: $s=\frac{u_L+u_R}{2}$).
@@ -245,12 +245,12 @@ No caso sônico a face está \emph{dentro} do leque, onde a característica est�
 \begin{columns}[T]
 \begin{column}{0.58\textwidth}
 \begin{itemize}
-\item Três ondas: a 1-onda ($u-c$) e a 3-onda ($u+c$), choque ou rarefação cada, e o contato no meio. Na região \emph{estrela}, $p^*$ e $u^*$ são os mesmos dos dois lados; $\rho^*_L\neq\rho^*_R$.
+\item Três ondas: a 1-onda ($u-c$) e a 3-onda ($u+c$), cada uma choque ou rarefação, com o contato no meio. Na região \emph{estrela}, $p^*$ e $u^*$ são os mesmos dos dois lados; $\rho^*_L\neq\rho^*_R$.
 \item Cada onda externa liga $u^*$ a $p^*$: $u^*=u_L-f_L(p^*)=u_R+f_R(p^*)$, com $f_K$ dada por Rankine--Hugoniot (se choque) ou pelo invariante de Riemann (se rarefação). Igualando:
 \[
 f(p^*)\equiv f_L(p^*)+f_R(p^*)+(u_R-u_L)=0 .
 \]
-\item $f$ é crescente e côncava: Newton converge em 3--5 iterações. Depois $u^*$ sai de $f_L$, $f_R$, e a solução é amostrada em $x/t$. Fórmulas em Toro (cap.\ 4) e no script \texttt{riemann\_exato.py} fornecido.
+\item $f$ é crescente e côncava: Newton converge em 3--5 iterações. Depois $u^*$ sai de $f_L$ e $f_R$; a solução é então amostrada em $x/t$. Fórmulas em Toro (cap.\ 4) e no script \texttt{riemann\_exato.py} fornecido.
 \item Sod (Encontro 1): $p^*=0.303$, $u^*=0.927$; é assim que a ``exata'' das figuras é calculada.
 \end{itemize}
 \end{column}
@@ -307,7 +307,7 @@ O esquema usa da solução exata um único valor, em $x/t=0$; o custo é um Newt
 \end{column}
 \begin{column}{0.5\textwidth}
 \begin{intuicao}
-O único erro do método está na média: a evolução é exata. Projetar perde informação, e é isso que aparece como difusão numérica. Ordem alta (Encontro 3) é \emph{reconstruir melhor} antes de evoluir.
+O único erro do método está na média: a evolução é exata. Projetar perde informação: é isso que aparece como difusão numérica. Ordem alta (Encontro 3) é \emph{reconstruir melhor} antes de evoluir.
 \end{intuicao}
 \end{column}
 \end{columns}
@@ -352,12 +352,12 @@ Godunov responde à pergunta da face do único modo fiel: deixa a física decidi
 % =====================================================================
 \section{O solver de Roe}
 
-\begin{frame}{Por que aproximar, e a ideia de Roe (1981)}
+\begin{frame}{Por que aproximar e a ideia de Roe (1981)}
 \begin{columns}[T]
 \begin{column}{0.5\textwidth}
 \begin{itemize}
-\item O exato custa um Newton por face e passo; com gás real (IAPWS) nem há forma fechada, e nas sete equações a solução exata nem é conhecida.
-\item O esquema só usa $\RP(0)$, e a média apaga o resto: basta um fluxo ``certo o bastante''.
+\item O exato custa um Newton por face e passo; com gás real (IAPWS) nem há forma fechada; nas sete equações a solução exata nem é conhecida.
+\item O esquema só usa $\RP(0)$ e a média apaga o resto: basta um fluxo ``certo o bastante''.
 \item Ideia: trocar $f'(u)$ por uma matriz \emph{constante} $\Ah(u_L,u_R)$ na face e resolver o problema de Riemann \emph{linear} exatamente (Parte 1).
 \end{itemize}
 \begin{intuicao}
@@ -374,7 +374,7 @@ $\Ah(u_L,u_R)$ é uma matriz de Roe para o fluxo $f$ se
 \end{enumerate}
 \end{definicao}
 \begin{itemize}
-\item Consequência de (i): num choque ou contato isolado de velocidade $s$, $\Ah\Delta u=s\Delta u$, e o problema linear reproduz a descontinuidade \emph{exatamente}, à velocidade certa.
+\item Consequência de (i): num choque ou contato isolado de velocidade $s$, $\Ah\Delta u=s\Delta u$ e o problema linear reproduz a descontinuidade \emph{exatamente}, à velocidade certa.
 \item Burgers: $\hat a=\frac{u_L+u_R}{2}$, pois $\hat a\,(u_R-u_L)=\frac{u_R^2-u_L^2}{2}$. É a velocidade do choque.
 \end{itemize}
 \end{column}
@@ -477,7 +477,7 @@ $\rh_1=(1,\,\hat u-\hat c,\,\hat H-\hat u\hat c)^{\!\top}$, $\rh_2=(1,\,\hat u,\
 {\small \textbf{Problema 123} (Einfeldt et al., 1991): $\rho=1$ e $p=0.4$ dos dois lados, $u=-2$ à esquerda e $+2$ à direita. Duas rarefações fortes se afastam; no meio, $p^*=0.0019$ e $\rho^*=0.022$: quase vácuo, mas positivo.}
 \end{column}
 \begin{column}{0.5\textwidth}
-{\small O Roe lineariza: $\hat u=0$, $\hat c^{\,2}=1.36$, e o estado estrela do problema \emph{linear} tem $\rho^*=1-2/\hat c<0$. No primeiro passo a célula vizinha fica com $p<0$. Baixar a CFL só adia; a correção de entropia não ajuda: o problema é a linearização.}
+{\small O Roe lineariza: $\hat u=0$ e $\hat c^{\,2}=1.36$; o estado estrela do problema \emph{linear} tem $\rho^*=1-2/\hat c<0$. No primeiro passo a célula vizinha fica com $p<0$. Baixar a CFL só adia; a correção de entropia não ajuda: o problema é a linearização.}
 \end{column}
 \end{columns}
 \begin{mensagem}
@@ -485,10 +485,10 @@ Roe é o mais preciso dos aproximados e o menos robusto: pode sair do conjunto a
 \end{mensagem}
 \end{frame}
 
-\begin{frame}{Outros fluxos, em uma linha cada, e a comparação em Sod}
+\begin{frame}{Outros fluxos em uma linha cada e a comparação em Sod}
 \begin{itemize}
 \item \textbf{Rusanov}: $Q=\max(|u|+c)$, a velocidade máxima; barato, positivo, borra tudo o que é lento.
-\item \textbf{HLL} (Harten, Lax e van Leer, 1983): só duas ondas, $S_L<S_R$, e um estado entre elas fixado pela conservação, $\Fh=\dfrac{S_Rf_L-S_Lf_R+S_LS_R(u_R-u_L)}{S_R-S_L}$ para $S_L<0<S_R$; positivo com as velocidades de Einfeldt, mas borra o contato.
+\item \textbf{HLL} (Harten, Lax e van Leer, 1983): só duas ondas, $S_L<S_R$, com um estado entre elas fixado pela conservação, $\Fh=\dfrac{S_Rf_L-S_Lf_R+S_LS_R(u_R-u_L)}{S_R-S_L}$ para $S_L<0<S_R$; positivo com as velocidades de Einfeldt, mas borra o contato.
 \item \textbf{HLLC} (Toro, Spruce e Speares, 1994): o HLL com a onda do contato de volta; nítido como o Roe, positivo como o HLL. É o fluxo do THM/MOOSE e do RELAP-7 (Encontros 3 e 4).
 \end{itemize}
 \begin{center}\scriptsize
