@@ -523,14 +523,14 @@ Pesos positivos que acertam a média e a velocidade erram a variância para mais
 Trocar $f'(u)$ por uma matriz constante $\Ah(u_L,u_R)$ na face e resolver o problema \emph{linear} exatamente (Parte 2). É o \textbf{Roe} (1981).
 \end{definicao}
 \begin{definicao}{(B) Simplificar as ondas}
-Supor só duas (\textbf{HLL}) ou três (\textbf{HLLC}) ondas, com velocidades estimadas, e deixar a conservação fixar os estados entre elas (Harten, Lax e van Leer, 1983; Toro et al., 1994).
+Supor só duas (\textbf{HLL}) ou três (\textbf{HLLC}) ondas, com velocidades estimadas, e deixar a conservação fixar os estados entre elas.
 \end{definicao}
 \end{column}
 \begin{column}{0.5\textwidth}
 \begin{teorema}{O que um solver aproximado precisa manter}
 \begin{enumerate}
 \item consistência, $\Fh(u,u)=f(u)$;
-\item conservação: o leque aproximado deve ``pesar'' o mesmo que o exato, $\int_{-h/2}^{h/2}\hat u(x,\Delta t)\,\dd x=\frac h2(u_L+u_R)-\Delta t\,[f(u_R)-f(u_L)]$;
+\item conservação: o leque aproximado deve ``pesar'' o mesmo que o exato, $\int_{-h/2}^{h/2}\hat u(x,\Delta t)\,\dd x=\frac h2(u_L+u_R)-\Delta t\,\Delta f$;
 \item upwind por onda: cada onda dissipada com a sua velocidade;
 \item entropia (sem choques de expansão) e positividade ($\rho>0$, $p>0$).
 \end{enumerate}
