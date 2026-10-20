@@ -1,0 +1,146 @@
+% =====================================================================
+%  beamerthemeatomic.sty  --  RECONSTRUÇÃO do tema "atomic" usado no Encontro 1
+%  (cores, caixas e layout reproduzidos a partir do PDF do Encontro 1).
+%  Se o arquivo original do projeto estiver disponível, use-o no lugar deste.
+%  Fornece: cores atomicazul, atomiclaranja, atomicazulclaro, atomicverde,
+%  atomicvermelho, atomiccinza, atomicfundo; ambientes definicao{titulo},
+%  teorema{titulo}, atencao{titulo}, intuicao, mensagem; páginas de seção;
+%  rodapé; título de slide com barra laranja.
+% =====================================================================
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{beamerthemeatomic}[2026/10/20 Tema ATOMIC (reconstrucao)]
+\mode<presentation>
+
+\RequirePackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,calc}
+\RequirePackage{amssymb}
+\RequirePackage[most]{tcolorbox}
+
+% ---------------------------------------------------------------- cores
+\definecolor{atomicazul}{HTML}{103460}
+\definecolor{atomiclaranja}{HTML}{ED7D31}
+\definecolor{atomicazulclaro}{HTML}{5B9BD5}
+\definecolor{atomicverde}{HTML}{146E46}
+\definecolor{atomicvermelho}{HTML}{AA3228}
+\definecolor{atomiccinza}{HTML}{7F7F7F}
+\definecolor{atomicfundo}{HTML}{F6F8FB}
+\definecolor{atomictexto}{HTML}{1E1F1F}
+
+\setbeamercolor{normal text}{fg=atomictexto,bg=white}
+\setbeamercolor{structure}{fg=atomicazul}
+\setbeamercolor{alerted text}{fg=atomiclaranja}
+\setbeamercolor{example text}{fg=atomicverde}
+\setbeamercolor{title}{fg=atomicazul}
+\setbeamercolor{subtitle}{fg=black!55}
+\setbeamercolor{author}{fg=atomictexto}
+\setbeamercolor{institute}{fg=black!55}
+\setbeamercolor{date}{fg=black!55}
+\setbeamercolor{frametitle}{fg=atomicazul,bg=white}
+\setbeamercolor{footline}{fg=white,bg=atomicazul}
+\setbeamercolor{itemize item}{fg=atomiclaranja}
+\setbeamercolor{itemize subitem}{fg=atomiclaranja}
+\setbeamercolor{itemize subsubitem}{fg=atomiclaranja}
+\setbeamercolor{enumerate item}{fg=atomiclaranja}
+\setbeamercolor{enumerate subitem}{fg=atomiclaranja}
+\setbeamercolor{description item}{fg=atomicazul}
+\setbeamercolor{caption name}{fg=atomicazul}
+\setbeamercolor{section in toc}{fg=atomicazul}
+\setbeamercolor{block title}{fg=white,bg=atomicazul}
+\setbeamercolor{block body}{fg=atomictexto,bg=atomicfundo}
+\setbeamercolor{block title alerted}{fg=white,bg=atomiclaranja}
+\setbeamercolor{block body alerted}{fg=atomictexto,bg=atomiclaranja!12}
+\setbeamercolor{block title example}{fg=white,bg=atomicazul}
+\setbeamercolor{block body example}{fg=atomictexto,bg=atomicfundo}
+
+% ---------------------------------------------------------------- fontes
+\setbeamerfont{title}{series=\bfseries,size=\LARGE}
+\setbeamerfont{subtitle}{series=\mdseries,size=\normalsize}
+\setbeamerfont{author}{size=\normalsize}
+\setbeamerfont{institute}{size=\small}
+\setbeamerfont{date}{size=\small}
+\setbeamerfont{frametitle}{series=\bfseries,size=\large}
+\setbeamerfont{block title}{series=\bfseries,size=\small}
+\setbeamerfont{footline}{size=\tiny}
+\setbeamerfont{section title}{series=\bfseries,size=\LARGE}
+
+% ---------------------------------------------------------------- layout
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{itemize items}[square]
+\setbeamertemplate{enumerate items}[default]
+\setbeamersize{text margin left=0.65cm,text margin right=0.65cm}
+\setlength{\leftmargini}{1.1em}
+\setlength{\leftmarginii}{1.0em}
+
+% título do slide: barra laranja + texto azul
+\setbeamertemplate{frametitle}{%
+  \nointerlineskip
+  \vskip0.22cm
+  \begin{beamercolorbox}[wd=\paperwidth,leftskip=0.62cm,rightskip=0.5cm]{frametitle}
+    \begin{tikzpicture}
+      \node[inner sep=0pt,anchor=base west,text width=\dimexpr\paperwidth-1.55cm\relax,align=left]
+        (t) at (0,0) {\usebeamerfont{frametitle}\usebeamercolor[fg]{frametitle}\strut\insertframetitle\strut};
+      \fill[atomiclaranja] ([xshift=-0.32cm]t.north west) rectangle ([xshift=-0.24cm]t.south west);
+    \end{tikzpicture}
+  \end{beamercolorbox}
+  \vskip0.04cm
+}
+
+% rodapé
+\setbeamertemplate{footline}{%
+  \begin{beamercolorbox}[wd=\paperwidth,ht=0.3cm,dp=0.14cm,leftskip=0.45cm,rightskip=0.45cm]{footline}
+    \usebeamerfont{footline}\insertshorttitle\ \textcolor{atomiclaranja}{$\blacktriangleright$}\ \insertsection
+    \hfill\insertframenumber\,/\,\inserttotalframenumber
+  \end{beamercolorbox}
+}
+
+% página de título
+\setbeamertemplate{title page}{%
+  \vspace*{0.4cm}
+  \begin{tikzpicture}
+    \node[inner sep=0pt,anchor=north west,text width=0.9\textwidth,align=left] (tt) at (0,0)
+      {\usebeamerfont{title}\usebeamercolor[fg]{title}\inserttitle\par};
+    \fill[atomiclaranja] ([xshift=-0.32cm]tt.north west) rectangle ([xshift=-0.24cm]tt.south west);
+  \end{tikzpicture}\par
+  \vskip0.3cm
+  {\usebeamerfont{subtitle}\usebeamercolor[fg]{subtitle}\insertsubtitle\par}
+  \vskip0.7cm
+  {\usebeamerfont{author}\usebeamercolor[fg]{author}\insertauthor\par}
+  \vskip0.04cm
+  {\usebeamerfont{institute}\usebeamercolor[fg]{institute}\insertinstitute\par}
+  \vskip0.3cm
+  {\usebeamerfont{date}\usebeamercolor[fg]{date}\insertdate\par}
+  \vfill
+  \inserttitlegraphic
+}
+
+% páginas de seção
+\AtBeginSection[]{%
+  {\setbeamercolor{background canvas}{bg=atomicazul}%
+  \begin{frame}[plain,noframenumbering]
+    \vspace*{\stretch{1}}
+    \hspace*{0.95cm}\begin{tikzpicture}
+      \node[inner sep=0pt,anchor=west,text=white,font=\usebeamerfont{section title},text width=0.8\paperwidth,align=left]
+        (st) at (0,0) {\insertsectionhead};
+      \fill[atomiclaranja] ([xshift=-0.34cm]st.north west) rectangle ([xshift=-0.26cm]st.south west);
+      \node[anchor=north west,text=atomiclaranja,font=\normalsize] at ([yshift=-0.22cm]st.south west) {Parte \thesection};
+    \end{tikzpicture}
+    \vspace*{\stretch{1.25}}
+  \end{frame}}%
+}
+
+% ---------------------------------------------------------------- caixas
+\tcbset{atomicbase/.style={enhanced,boxrule=0.5pt,arc=1.2pt,left=5pt,right=5pt,top=3pt,bottom=3pt,boxsep=0.5pt,
+  fonttitle=\bfseries\small,toptitle=2pt,bottomtitle=2pt,lefttitle=5pt,coltitle=white,
+  before skip=3pt,after skip=5pt,colupper=atomictexto}}
+\newtcolorbox{definicao}[2][]{atomicbase,colback=atomicfundo,colframe=atomicazul!45!white,colbacktitle=atomicazul,title={#2},#1}
+\newtcolorbox{teorema}[2][]{atomicbase,colback=atomicverde!6!white,colframe=atomicverde!60!white,colbacktitle=atomicverde,title={#2},#1}
+\newtcolorbox{atencao}[2][]{atomicbase,colback=atomicvermelho!10!white,colframe=atomicvermelho!60!white,colbacktitle=atomicvermelho,title={#2},#1}
+\newtcolorbox{intuicao}[1][]{atomicbase,colback=atomicfundo,colframe=atomicazul!35!white,before upper={\textbf{Intuição.} },#1}
+\newtcolorbox{mensagem}[1][]{atomicbase,colback=atomiclaranja!15!white,colframe=atomiclaranja!70!white,fontupper=\bfseries,#1}
+
+% blocos padrão do beamer com o mesmo visual
+\renewenvironment{block}[1]{\begin{tcolorbox}[atomicbase,colback=atomicfundo,colframe=atomicazul!45!white,colbacktitle=atomicazul,title={#1}]}{\end{tcolorbox}}
+\renewenvironment{alertblock}[1]{\begin{tcolorbox}[atomicbase,colback=atomiclaranja!12!white,colframe=atomiclaranja!70!white,colbacktitle=atomiclaranja,title={#1}]}{\end{tcolorbox}}
+\renewenvironment{exampleblock}[1]{\begin{tcolorbox}[atomicbase,colback=atomicfundo,colframe=atomicazul!45!white,colbacktitle=atomicazul,title={#1}]}{\end{tcolorbox}}
+
+\mode<all>

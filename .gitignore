@@ -1,0 +1,9 @@
+# LaTeX auxiliares
+*.aux
+*.log
+*.nav
+*.out
+*.snm
+*.toc
+*.synctex.gz
+__pycache__/

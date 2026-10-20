@@ -1,0 +1,863 @@
+% =====================================================================
+%  Minicurso: métodos numéricos para leis de conservação --- Encontro 2
+%  Compilar com lualatex (fontspec). Tema: beamerthemeatomic.sty
+%  Figuras: scripts/make_figs.sh (Python 3 + numpy + matplotlib)
+% =====================================================================
+\documentclass[aspectratio=169,10pt]{beamer}
+\usetheme{atomic}
+
+\usepackage{fontspec}
+\IfFontExistsTF{Fira Sans}{\setsansfont{Fira Sans}[Scale=0.94]}{\setsansfont{Latin Modern Sans}}
+\usepackage[brazil]{babel}
+\usepackage{amsmath,amssymb,mathtools}
+\usepackage{booktabs,array}
+\usepackage{adjustbox}
+\usetikzlibrary{decorations.pathreplacing,shapes.misc,patterns}
+
+\AtBeginDocument{\setlength{\abovedisplayskip}{4pt}\setlength{\belowdisplayskip}{4pt}\setlength{\abovedisplayshortskip}{2pt}\setlength{\belowdisplayshortskip}{2pt}}
+\newcommand{\pd}[2]{\dfrac{\partial #1}{\partial #2}}
+\newcommand{\dd}{\mathrm{d}}
+\newcommand{\Fh}{\widehat F}
+\newcommand{\ub}{\bar u}
+\newcommand{\jump}[1]{[\![#1]\!]}
+\newcommand{\Ah}{\widehat A}
+\newcommand{\RP}{u^{\mathrm{RP}}}
+\newcommand{\lh}{\hat\lambda}
+\newcommand{\ah}{\hat\alpha}
+\newcommand{\rh}{\hat r}
+
+\title[Minicurso: leis de conservação]{Volumes finitos: upwind, Godunov\\ e solvers de Riemann aproximados}
+\subtitle{Minicurso de métodos numéricos para leis de conservação --- Encontro 2 de 4}
+\author{Prof. Dr. Ulisses A. Maciel Neto}
+\institute{Projeto ATOMIC --- Meta 2 (CTMSP / Ibmec-SP)}
+\date{Outubro de 2026}
+
+\begin{document}
+
+\begin{frame}[plain,noframenumbering]
+\titlepage
+\end{frame}
+
+\begin{frame}{Os quatro encontros}
+\begin{center}
+\begin{tikzpicture}[x=1cm,y=1cm,
+  enc/.style={draw=atomicazul,fill=atomicfundo,rounded corners=3pt,text width=2.95cm,align=center,minimum height=2.1cm,font=\small},
+  feito/.style={enc,draw=atomiccinza,text=black!55},
+  hoje/.style={enc,fill=atomiclaranja!15,draw=atomiclaranja,line width=1pt}]
+\node[feito] (e1) at (0,0) {\textbf{1. Leis de conservação}\\[2pt]\footnotesize hiperbolicidade, choques, soluções fracas, entropia, estabilidade};
+\node[hoje] (e2) at (3.45,0) {\textbf{2. Volumes finitos}\\[2pt]\footnotesize problema de Riemann, Godunov, fluxos numéricos};
+\node[enc] (e3) at (6.9,0) {\textbf{3. Ordem alta}\\[2pt]\footnotesize reconstrução, limitadores, rDG($P_0P_1$), positividade};
+\node[enc] (e4) at (10.35,0) {\textbf{4. Escoamento bifásico}\\[2pt]\footnotesize sete equações, fase evanescente, esquema corrigido};
+\foreach \a/\b in {e1/e2,e2/e3,e3/e4}{\draw[-{Stealth[length=6pt]},atomicazul,thick] (\a) -- (\b);}
+\node[below=0.25cm of e1,font=\footnotesize,text=black!55] {feito};
+\node[below=0.25cm of e2,font=\footnotesize,text=atomiclaranja] {hoje};
+\end{tikzpicture}
+\end{center}
+\vspace{0.2cm}
+\begin{itemize}
+\item No Encontro 1 vimos \emph{o que} se quer aproximar: o balanço integral, as ondas, os choques e a entropia. Hoje construímos \emph{a ferramenta}: o fluxo numérico na face.
+\item Tudo o que vem depois (ordem alta, bifásico) usa o fluxo de hoje como peça básica: o Encontro 3 muda o que se entrega ao fluxo, não o fluxo.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Roteiro de hoje}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\begin{enumerate}
+\item O esquema de volumes finitos: fluxo numérico, forma ``média central $+$ dissipação'', monotonia
+\item Upwind: do escalar aos sistemas lineares (cada onda tem o seu lado)
+\item O problema de Riemann: solução exata para Burgers e para Euler
+\end{enumerate}
+\end{column}
+\begin{column}{0.5\textwidth}
+\begin{enumerate}\setcounter{enumi}{3}
+\item O método de Godunov: reconstruir, evoluir, fazer a média; o teorema de Godunov
+\item Solvers de Riemann aproximados: Roe, correção de entropia, positividade; HLL e HLLC
+\item Síntese e exercício para o próximo encontro
+\end{enumerate}
+\end{column}
+\end{columns}
+\vspace{0.3cm}
+\begin{mensagem}
+Fio condutor: a física entra num único lugar, o fluxo na face. Hoje construímos esse fluxo, do mais simples (upwind) ao mais fiel (Godunov), e aprendemos a aproximá-lo bem (Roe, HLL).
+\end{mensagem}
+\end{frame}
+
+\begin{frame}{Ponto de partida: o que trouxemos do Encontro 1}
+\begin{columns}[T]
+\begin{column}{0.52\textwidth}
+\begin{definicao}{Quatro fatos que usaremos o tempo todo}
+\begin{enumerate}
+\item A lei física é o \textbf{balanço integral}: o total numa célula só muda pelo que atravessa as faces.
+\item Numa face há dois estados e um só fluxo: é um \textbf{problema de Riemann}, cuja solução depende só de $x/t$.
+\item A informação viaja ao longo das \textbf{características}, com velocidades $\lambda_p$: upwind é olhar para o lado de onde ela vem; a CFL limita o passo.
+\item \textbf{Conservação discreta} dá choques na velocidade certa (Lax--Wendroff); a \textbf{entropia} escolhe o choque certo.
+\end{enumerate}
+\end{definicao}
+\end{column}
+\begin{column}{0.46\textwidth}
+\begin{teorema}{O que o exercício deve ter mostrado}
+\begin{itemize}
+\item Upwind e Lax--Friedrichs: ordem 1, $E_N/E_{2N}\approx2$, degrau borrado.
+\item Lax--Wendroff: ordem 2, $E_N/E_{2N}\approx4$, oscilações atrás do degrau.
+\item $\nu>1$: o ruído de $10^{-6}$ cresce como $|1-2\nu|^{n}$ e domina em poucas dezenas de passos.
+\item Implícito: estável para todo $\nu$; com $\nu=20$ o pico cai e atrasa.
+\end{itemize}
+\end{teorema}
+\begin{mensagem}
+A pergunta de hoje é uma só: dados $u_L$ e $u_R$ numa face, qual é o fluxo $\Fh(u_L,u_R)$?
+\end{mensagem}
+\end{column}
+\end{columns}
+\end{frame}
+
+
+% =====================================================================
+\section{O esquema de volumes finitos}
+
+\begin{frame}{O esquema de volumes finitos: definição}
+\begin{definicao}{Esquema conservativo (explícito, estêncil de três pontos)}
+Células $K_j=[x_{j-1/2},x_{j+1/2}]$ de largura $h$, médias $\ub_j^{\,n}\approx\frac1h\int_{K_j}u(x,t^n)\,\dd x$, passo $\Delta t$:
+\[
+\ub_j^{\,n+1}=\ub_j^{\,n}-\frac{\Delta t}{h}\Big(\Fh_{j+1/2}^{\,n}-\Fh_{j-1/2}^{\,n}\Big),\qquad
+\Fh_{j+1/2}^{\,n}=\Fh\big(\ub_j^{\,n},\ub_{j+1}^{\,n}\big),
+\]
+com \textbf{fluxo numérico} $\Fh:\Omega\times\Omega\to\mathbb R^m$ (i) \emph{consistente}, $\Fh(u,u)=f(u)$, e (ii) Lipschitz-contínuo nos dois argumentos.
+\end{definicao}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\begin{itemize}
+\item É a forma integral do Encontro 1 com uma única aproximação: o fluxo médio na face, $\frac1{\Delta t}\int_{t^n}^{t^{n+1}}f\big(u(x_{j+1/2},t)\big)\dd t$, trocado por $\Fh(\ub_j,\ub_{j+1})$.
+\item Somando em $j$, os fluxos interiores cancelam: conservação discreta exata, com ou sem choques. Lax--Wendroff: o limite, se existir, é solução fraca; \emph{se} converge e \emph{para qual}, depende de $\Fh$.
+\end{itemize}
+\end{column}
+\begin{column}{0.5\textwidth}
+\begin{itemize}
+\item Contornos por \textbf{células fantasma}: transmissivo copia a vizinha ($\ub_0=\ub_1$), periódico envolve, parede reflete a velocidade. Passo: $\Delta t=\mathrm{CFL}\cdot h/\max_j|\lambda|_{\max}$, com $\mathrm{CFL}\le1$.
+\end{itemize}
+\begin{intuicao}
+Dois esquemas de volumes finitos só diferem na resposta a uma pergunta: quanto atravessa a face quando os dois lados discordam? Esquema \emph{é} fluxo numérico.
+\end{intuicao}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Todo fluxo numérico é ``média central mais dissipação''}
+\begin{teorema}{Forma viscosa de um fluxo numérico}
+Todo fluxo numérico se escreve como
+\[
+\Fh(u_L,u_R)=\underbrace{\tfrac12\big[f(u_L)+f(u_R)\big]}_{\text{média central}}\;-\;\underbrace{\tfrac12\,Q(u_L,u_R)\,(u_R-u_L)}_{\text{dissipação numérica}},
+\]
+com $Q$ o \textbf{coeficiente de viscosidade numérica} (um número no caso escalar, uma matriz $m\times m$ nos sistemas).
+\end{teorema}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{center}\scriptsize
+\begin{tabular}{@{}ll@{}}
+\toprule
+fluxo & $Q$ (advecção, $f=au$)\\
+\midrule
+central & $0$: instável (explícito)\\
+Lax--Wendroff & $a^2\Delta t/h=\nu|a|$: ordem 2, oscila\\
+upwind & $|a|$: o menor $Q$ monótono\\
+Rusanov & $\max\{|f'(u_L)|,|f'(u_R)|\}$\\
+Lax--Friedrichs & $h/\Delta t$: o maior $Q$ estável\\
+Godunov, Roe & o que as ondas pedem (Partes 4 e 5)\\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{column}
+\begin{column}{0.52\textwidth}
+\begin{itemize}
+\item Equação modificada (advecção): $\pd ut+a\pd ux=\frac h2\big(Q-\frac{\Delta t}{h}a^2\big)\pd{^2u}{x^2}+\dots$: $Q$ \emph{é} a viscosidade do esquema.
+\item Estável (von Neumann) sse $\nu|a|\le Q\le h/\Delta t$; combinação convexa dos vizinhos (nenhum extremo novo) sse $|a|\le Q\le h/\Delta t$.
+\end{itemize}
+\end{column}
+\end{columns}
+\begin{mensagem}
+Escolher o fluxo é escolher quanta viscosidade pôr em cada face: pouca oscila ou explode, muita borra. A física das ondas diz o mínimo necessário: $|a|$ na advecção.
+\end{mensagem}
+\end{frame}
+
+\begin{frame}{O ``botão'' da dissipação: de Lax--Wendroff a Lax--Friedrichs}
+\begin{center}
+\includegraphics[width=\textwidth,height=0.66\textheight,keepaspectratio]{figs/fluxo_dissipacao.pdf}
+\end{center}
+\vspace{-0.15cm}
+{\footnotesize Mesmo dado, mesmo esquema, só muda $Q$ (degrau e gaussiana transportados meia unidade, $\nu=0.5$). À esquerda: $Q=\nu|a|$ oscila (dispersão); $Q=|a|$ é o mais nítido que não oscila; $Q=h/\Delta t$ é o mais borrado; entre os dois só muda o quanto borra. À direita, $|g(\theta)|$: abaixo de $\nu|a|$ ou acima de $h/\Delta t$ há modos com $|g|>1$ e o esquema explode.}
+\end{frame}
+
+\begin{frame}{Esquemas monótonos: o que garantem}
+\begin{definicao}{Esquema monótono}
+$\ub_j^{\,n+1}=H(\ub_{j-1}^{\,n},\ub_j^{\,n},\ub_{j+1}^{\,n})$ é \textbf{monótono} se $H$ é não decrescente em cada argumento. Na forma viscosa com $Q$ constante: $\max\{f'(u_R),-f'(u_L)\}\le Q\le h/\Delta t$; na advecção, $|a|\le Q\le h/\Delta t$.
+\end{definicao}
+\begin{columns}[T]
+\begin{column}{0.56\textwidth}
+\begin{teorema}{Harten, Hyman e Lax (1976); Crandall e Majda (1980); caso escalar}
+Um esquema monótono, conservativo e consistente
+\begin{enumerate}
+\item[(i)] não cria extremos novos, $\min_k\ub_k^{\,n}\le\ub_j^{\,n+1}\le\max_k\ub_k^{\,n}$: positividade de graça ($\alpha\in[0,1]$, $\rho>0$);
+\item[(ii)] é TVD: a variação total $\sum_j|\ub_{j+1}^{\,n}-\ub_j^{\,n}|$ não cresce; logo é estável em $L^1$ e $L^\infty$;
+\item[(iii)] satisfaz uma desigualdade de entropia discreta e converge para a \emph{única} solução de entropia.
+\end{enumerate}
+\end{teorema}
+\end{column}
+\begin{column}{0.44\textwidth}
+\begin{itemize}
+\item Upwind ($\nu\le1$), Lax--Friedrichs, Rusanov e Godunov são monótonos; Lax--Wendroff e o central não.
+\item O preço vem na Parte 4 (teorema de Godunov): monótono e \emph{linear} implica primeira ordem.
+\end{itemize}
+\begin{intuicao}
+Monotonia é a versão discreta de ``a informação se propaga, não se amplifica'': cada valor novo é uma média, com pesos positivos, de valores antigos. Por isso dá positividade de graça, e por isso borra.
+\end{intuicao}
+\end{column}
+\end{columns}
+\end{frame}
+
+
+% =====================================================================
+\section{Upwind: do escalar aos sistemas}
+
+\begin{frame}{Upwind como fluxo numérico}
+\begin{columns}[T]
+\begin{column}{0.55\textwidth}
+\begin{definicao}{Fluxo upwind (advecção linear, $f=au$)}
+\[
+\Fh(u_L,u_R)=a^+u_L+a^-u_R,\qquad a^\pm=\tfrac12\,(a\pm|a|),
+\]
+isto é, $\Fh=\tfrac a2(u_L+u_R)-\tfrac{|a|}{2}(u_R-u_L)$: a forma viscosa com $Q=|a|$.
+\end{definicao}
+\begin{itemize}
+\item Com $a>0$, $\Fh=a\,u_L$: o upwind do Encontro 1, $u_j^{n+1}=u_j^n-\nu\,(u_j^n-u_{j-1}^n)$, escrito como fluxo.
+\item Escalar não linear com $f'$ de sinal fixo entre $u_L$ e $u_R$: $\Fh=f(u_L)$ se $f'>0$, $\Fh=f(u_R)$ se $f'<0$.
+\item Se $f'$ troca de sinal entre $u_L$ e $u_R$ (Burgers, $u_L<0<u_R$), a informação \emph{se afasta} da face pelos dois lados e nenhum dos estados é a resposta: é o \textbf{ponto sônico}, que só o problema de Riemann resolve (Parte 3).
+\end{itemize}
+\end{column}
+\begin{column}{0.45\textwidth}
+\begin{center}
+\begin{tikzpicture}[x=1cm,y=0.8cm,font=\scriptsize]
+\fill[atomicazulclaro!18] (-2.4,0) rectangle (0,1.4);
+\fill[atomicverde!10] (0,0) rectangle (2.4,1.4);
+\draw[-{Stealth}] (-2.6,0)--(2.7,0) node[right]{$x$}; \draw[-{Stealth}] (0,0)--(0,1.75) node[above]{$t$};
+\draw[atomiclaranja,line width=1.4pt,dashed] (0,0)--(0,1.4);
+\node[text=atomiclaranja,right] at (0.1,1.3) {face $x_{j+1/2}$};
+\foreach \x in {-2.2,-1.7,-1.2,-0.7,-0.2}{\draw[-{Stealth[length=4pt]},atomicazul,thick] (\x,0)--({\x+1.25},1.3);}
+\node[text=atomicazul] at (-1.5,0.25) {$u_L$ (célula $j$)}; \node[text=atomicverde] at (1.5,0.25) {$u_R$ (célula $j{+}1$)};
+\node[text=atomicazul] at (-1.4,1.6) {$a>0$: a face só vê $u_L$};
+\end{tikzpicture}
+\end{center}
+\begin{intuicao}
+Upwind é Godunov para a advecção: a solução de Riemann é o salto transportado a velocidade $a$; em $x/t=0$ ela vale $u_L$ se $a>0$. O fluxo é o da célula \emph{de onde} a onda vem.
+\end{intuicao}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Sistemas lineares: cada onda tem o seu lado}
+\begin{columns}[T]
+\begin{column}{0.54\textwidth}
+\begin{itemize}
+\item $\pd ut+A\pd ux=0$, $A=R\Lambda R^{-1}$ constante. Nas \textbf{variáveis características} $w=R^{-1}u$ são $m$ advecções independentes, com velocidades $\lambda_p$.
+\item Upwind em cada $w_p$ e volta para $u$:
+\[
+\Fh=A^+u_L+A^-u_R=\tfrac12A\,(u_L+u_R)-\tfrac12|A|\,(u_R-u_L),
+\]
+com $A^\pm=R\Lambda^\pm R^{-1}$ e $|A|=R|\Lambda|R^{-1}$: $Q=|A|$.
+\item Na prática decompõe-se o salto em ondas, $u_R-u_L=\sum_p\alpha_p\,r_p$ (\textbf{intensidades} $\alpha=R^{-1}\Delta u$):
+\[
+\Fh=f(u_L)+\sum_{\lambda_p<0}\lambda_p\alpha_p r_p=f(u_R)-\sum_{\lambda_p>0}\lambda_p\alpha_p r_p .
+\]
+\end{itemize}
+\begin{intuicao}
+$|A|$ dissipa cada onda com a sua própria $|\lambda_p|$. Rusanov usa $\max_p|\lambda_p|$ em todas e borra as ondas lentas: o contato em Euler, as ondas de $\alpha$ no bifásico.
+\end{intuicao}
+\end{column}
+\begin{column}{0.46\textwidth}
+\begin{center}
+\begin{tikzpicture}[x=1cm,y=0.8cm,font=\scriptsize]
+\draw[-{Stealth}] (-2.6,0)--(2.8,0) node[right]{$x$}; \draw[-{Stealth},atomiclaranja,dashed,thick] (0,0)--(0,1.9) node[above,text=atomiclaranja]{face};
+\draw[atomicazul,thick] (0,0)--(-1.7,1.7) node[above,text=atomicazul]{$\lambda_1<0$};
+\draw[atomicazul,thick] (0,0)--(0.8,1.7) node[above,text=atomicazul]{$\lambda_2$};
+\draw[atomicazul,thick] (0,0)--(2.0,1.7) node[above,text=atomicazul]{$\lambda_3$};
+\node at (-2.0,0.4) {$u_L$}; \node at (2.3,0.4) {$u_R$};
+\node[align=center] at (-0.5,1.3) {$u_1^*=u_L+\alpha_1 r_1$};
+\node[align=center] at (1.3,0.7) {$u_2^*=u_1^*+\alpha_2 r_2$};
+\end{tikzpicture}
+\end{center}
+\begin{teorema}{Problema de Riemann linear: solução exata}
+$u(x,t)=u_L+\sum_{\lambda_p<x/t}\alpha_p r_p$: $m$ saltos que viajam a $\lambda_p$. Na face, $u^*=u_L+\sum_{\lambda_p<0}\alpha_pr_p$, e $Au^*$ é o fluxo ao lado: \textbf{upwind é Godunov para sistemas lineares}.
+\end{teorema}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Exemplo: acústica linear, a onda de pressão vista pela face}
+\begin{columns}[T]
+\begin{column}{0.56\textwidth}
+\begin{definicao}{Acústica linearizada (fluido em repouso, som $c$, impedância $Z=\rho_0c$)}
+\[
+\pd pt+\rho_0c^2\pd ux=0,\qquad \pd ut+\frac1{\rho_0}\pd px=0 ;
+\]
+$A=\big(\begin{smallmatrix}0&\rho_0c^2\\ 1/\rho_0&0\end{smallmatrix}\big)$, $\lambda_{1,2}=\mp c$, $r_{1,2}=(\mp Z,\,1)^{\!\top}$.
+\end{definicao}
+\begin{itemize}
+\item Intensidades: $\alpha_{1,2}=\tfrac12\big(\Delta u\mp\Delta p/Z\big)$, com $\Delta(\cdot)=(\cdot)_R-(\cdot)_L$.
+\item Estado na face, entre as duas ondas: $p^*=\tfrac12(p_L+p_R)-\tfrac{Z}{2}\,\Delta u$ e $u^*=\tfrac12(u_L+u_R)-\tfrac{1}{2Z}\,\Delta p$.
+\item Fluxo upwind: $\Fh=\big(\rho_0c^2u^*,\ p^*/\rho_0\big)$. Aqui $|A|=c\,I$, logo $Q=c$: dissipação proporcional ao som, não à velocidade do fluido (o problema do baixo Mach, Encontro 1).
+\end{itemize}
+\end{column}
+\begin{column}{0.44\textwidth}
+\begin{center}
+\begin{tikzpicture}[x=1cm,y=1cm,font=\scriptsize]
+\draw[-{Stealth}] (-2.4,0)--(2.6,0) node[right]{$x$}; \draw[-{Stealth},atomiclaranja,dashed,thick] (0,0)--(0,1.8) node[above,text=atomiclaranja]{face};
+\draw[atomicazul,thick] (0,0)--(-1.6,1.6) node[above left,text=atomicazul]{$-c$};
+\draw[atomicazul,thick] (0,0)--(1.6,1.6) node[above right,text=atomicazul]{$+c$};
+\node at (-1.9,0.4) {$(p_L,u_L)$}; \node at (1.9,0.4) {$(p_R,u_R)$}; \node at (0.6,1.15) {$(p^*,u^*)$};
+\end{tikzpicture}
+\end{center}
+\begin{intuicao}
+A pressão na face é a média das pressões \emph{corrigida pelo salto de velocidade}: se a esquerda avança mais depressa, o fluido é comprimido e $p^*$ sobe. É o acoplamento pressão--velocidade que os códigos de sistema impõem à mão (malha deslocada, \emph{donor cell}); aqui ele nasce do problema de Riemann.
+\end{intuicao}
+\end{column}
+\end{columns}
+\end{frame}
+
+
+% =====================================================================
+\section{O problema de Riemann: solução exata}
+
+\begin{frame}{Burgers: choque ou rarefação, e o caso sônico}
+\begin{teorema}{Solução do problema de Riemann para $f$ convexa ($f''>0$)}
+\begin{itemize}
+\item $u_L>u_R$: \textbf{choque}, $u=u_L$ se $x<st$ e $u_R$ se $x>st$, com $s=\frac{f(u_R)-f(u_L)}{u_R-u_L}$ (Burgers: $s=\frac{u_L+u_R}{2}$).
+\item $u_L<u_R$: \textbf{rarefação}, $u=u_L$ se $x<f'(u_L)\,t$, $u_R$ se $x>f'(u_R)\,t$ e $f'(u)=x/t$ no leque (Burgers: $u=x/t$).
+\end{itemize}
+\end{teorema}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\begin{definicao}{Fluxo de Godunov escalar (Osher, 1984)}
+\[
+\Fh^{\mathrm G}(u_L,u_R)=\begin{cases}\displaystyle\min_{u_L\le u\le u_R}f(u),&u_L\le u_R,\\[8pt]\displaystyle\max_{u_R\le u\le u_L}f(u),&u_L>u_R.\end{cases}
+\]
+Burgers: $\Fh^{\mathrm G}=\max\big\{f(\max(u_L,0)),\,f(\min(u_R,0))\big\}$.
+\end{definicao}
+\end{column}
+\begin{column}{0.5\textwidth}
+\begin{center}\scriptsize
+\begin{tabular}{@{}lll@{}}
+\toprule
+situação (Burgers) & estado na face & fluxo\\
+\midrule
+$u_L>u_R$, $s>0$ & $u_L$ & $f(u_L)$\\
+$u_L>u_R$, $s<0$ & $u_R$ & $f(u_R)$\\
+$0\le u_L<u_R$ & $u_L$ & $f(u_L)$\\
+$u_L<u_R\le0$ & $u_R$ & $f(u_R)$\\
+$u_L<0<u_R$ (sônico) & $0$ & $f(0)=0$\\
+\bottomrule
+\end{tabular}
+\end{center}
+\begin{intuicao}
+No caso sônico a face está \emph{dentro} do leque, onde a característica está parada: o valor lido não é $u_L$ nem $u_R$. É aqui que o upwind ingênuo e o Roe sem correção erram.
+\end{intuicao}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Os três problemas de Riemann de Burgers}
+\begin{center}
+\includegraphics[width=\textwidth,height=0.7\textheight,keepaspectratio]{figs/riemann_burgers.pdf}
+\end{center}
+\vspace{-0.2cm}
+{\footnotesize Em cima, características e onda no plano $x$--$t$; embaixo, a solução em $t=1$ e o valor lido na face $x=0$ (ponto laranja), que define o fluxo de Godunov $f(\RP(0))$. No caso transônico as características divergem da face e o valor lido é o ponto sônico, $u=0$.}
+\end{frame}
+
+\begin{frame}{Euler: a estrutura da solução exata}
+\begin{itemize}
+\item Três ondas: a 1-onda ($u-c$) e a 3-onda ($u+c$), choque ou rarefação cada, e o contato no meio. Na região \emph{estrela}, $p^*$ e $u^*$ são os mesmos dos dois lados; $\rho^*_L\neq\rho^*_R$.
+\item Cada onda externa liga $u^*$ a $p^*$: $u^*=u_L-f_L(p^*)=u_R+f_R(p^*)$, com, para $K=L,R$, $A_K=\frac{2}{(\gamma+1)\rho_K}$ e $B_K=\frac{\gamma-1}{\gamma+1}p_K$,
+\[
+f_K(p)=\begin{cases}(p-p_K)\sqrt{A_K/(p+B_K)},&p>p_K\quad\text{(choque: vem de Rankine--Hugoniot)},\\[4pt]
+\dfrac{2c_K}{\gamma-1}\Big[(p/p_K)^{\frac{\gamma-1}{2\gamma}}-1\Big],&p\le p_K\quad\text{(rarefação: vem do invariante de Riemann)}.\end{cases}
+\]
+\end{itemize}
+\vspace{-0.1cm}
+\begin{columns}[T]
+\begin{column}{0.6\textwidth}
+\begin{itemize}
+\item Igualando: $f(p^*)\equiv f_L(p^*)+f_R(p^*)+(u_R-u_L)=0$, uma equação escalar. $f$ é crescente e côncava: Newton converge em 3--5 iterações; depois $u^*=\frac12(u_L+u_R)+\frac12[f_R(p^*)-f_L(p^*)]$ e amostra-se em $x/t$.
+\item Vácuo: $f(0)<0$ exige $u_R-u_L<\frac{2}{\gamma-1}(c_L+c_R)$; se não, abre-se vácuo entre as rarefações.
+\end{itemize}
+\end{column}
+\begin{column}{0.4\textwidth}
+\begin{center}
+\includegraphics[width=0.9\textwidth]{figs/euler_pfunc.pdf}
+\end{center}
+\end{column}
+\end{columns}
+\end{frame}
+
+
+% =====================================================================
+\section{O método de Godunov}
+
+\begin{frame}{Godunov (1959): reconstruir, evoluir, fazer a média}
+\begin{center}
+\begin{tikzpicture}[x=1cm,y=1cm,font=\scriptsize]
+% (a) reconstruir
+\begin{scope}
+\draw[gray!60] (0,0)--(4,0);
+\draw[gray!70,dashed,thick] plot[smooth] coordinates {(0,0.5)(0.7,0.65)(1.4,1.0)(2.1,1.35)(2.8,1.45)(3.5,1.3)(4,1.15)};
+\foreach \x in {0,1,2,3,4}{\draw[black!35,dashed] (\x,0)--(\x,1.7);}
+\draw[atomicazul,line width=1.5pt] (0,0.6)--(1,0.6) (1,1.05)--(2,1.05) (2,1.42)--(3,1.42) (3,1.28)--(4,1.28);
+\node[anchor=north] at (2,-0.1) {(a) reconstruir: $\tilde u^n(x)=\ub_j^{\,n}$ em $K_j$};
+\end{scope}
+% (b) evoluir
+\begin{scope}[shift={(5.2,0)}]
+\draw[gray!60] (0,0)--(4,0); \draw[gray!60] (0,1.5)--(4,1.5);
+\foreach \x in {0,1,2,3,4}{\draw[black!35,dashed] (\x,0)--(\x,1.5);}
+\foreach \x in {1,2,3}{\fill[atomiclaranja!25] (\x,0)--({\x-0.45},1.5)--({\x+0.45},1.5)--cycle;
+  \draw[atomicvermelho,thick] (\x,0)--({\x+0.45},1.5); \draw[atomicazul,thick] (\x,0)--({\x-0.45},1.5); \draw[atomiclaranja,thick,dashed] (\x,0)--({\x+0.15},1.5);}
+\node[left] at (0,0) {$t^n$}; \node[left] at (0,1.5) {$t^{n+1}$};
+\node[anchor=north,align=center] at (2,-0.1) {(b) evoluir: um problema de Riemann por face;\\ as ondas não chegam às faces vizinhas (CFL $\le1$)};
+\end{scope}
+% (c) média
+\begin{scope}[shift={(10.4,0)}]
+\draw[gray!60] (0,0)--(4,0);
+\foreach \x in {0,1,2,3,4}{\draw[black!35,dashed] (\x,0)--(\x,1.7);}
+\draw[atomicazul!40,line width=1pt] (0,0.6)--(1,0.6) (1,1.05)--(2,1.05) (2,1.42)--(3,1.42) (3,1.28)--(4,1.28);
+\draw[atomiclaranja,line width=1.5pt] (0,0.62)--(1,0.62) (1,0.98)--(2,0.98) (2,1.33)--(3,1.33) (3,1.33)--(4,1.33);
+\node[anchor=north] at (2,-0.1) {(c) média: $\ub_j^{\,n+1}=\frac1h\int_{K_j}\tilde u(x,t^{n+1})\,\dd x$};
+\end{scope}
+\end{tikzpicture}
+\end{center}
+\vspace{0.1cm}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\begin{enumerate}
+\item \textbf{Reconstruir}: das médias $\ub_j^{\,n}$, a função constante por célula.
+\item \textbf{Evoluir}: resolver \emph{exatamente} a lei de conservação com esse dado durante $\Delta t$. Como o dado é constante por partes, isso é uma sequência de problemas de Riemann, um por face.
+\item \textbf{Média}: projetar $\tilde u(\cdot,t^{n+1})$ de volta em constantes por célula.
+\end{enumerate}
+\end{column}
+\begin{column}{0.5\textwidth}
+\begin{intuicao}
+O único erro do método está na média: a evolução é exata. Projetar perde informação, e é isso que aparece como difusão numérica. Ordem alta (Encontro 3) é \emph{reconstruir melhor} antes de evoluir.
+\end{intuicao}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{O método de Godunov: definição formal e propriedades}
+\begin{definicao}{Fluxo de Godunov}
+Seja $\RP(x/t;u_L,u_R)$ a solução de entropia do problema de Riemann com estados $u_L$ e $u_R$. O fluxo de Godunov é
+\[
+\Fh^{\mathrm G}(u_L,u_R)=f\big(\RP(0;u_L,u_R)\big).
+\]
+\end{definicao}
+\begin{teorema}{Por que o fluxo é um único valor: a média sai exata}
+A solução de Riemann é autossemelhante: em $x_{j+1/2}$ ela vale $\RP(0)$ para todo $t\in(t^n,t^{n+1}]$, logo $\bar F_{j+1/2}=\frac1{\Delta t}\int_{t^n}^{t^{n+1}}f(u(x_{j+1/2},t))\,\dd t=f(\RP(0))$ \emph{sem aproximação}, desde que as ondas das faces vizinhas não cheguem (CFL $\le1$); cruzamentos dentro da célula não afetam a média.
+\end{teorema}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\begin{itemize}
+\item Conservativo e consistente. Advecção: upwind. Sistema linear: upwind por onda. Burgers: a fórmula do $\max/\min$.
+\item Escalar: monótono sob CFL $\le1$, logo TVD e convergente para a solução de entropia. Em sistemas: o padrão-ouro de primeira ordem.
+\end{itemize}
+\end{column}
+\begin{column}{0.5\textwidth}
+\begin{itemize}
+\item Primeira ordem: $Q$ efetivo $=|f'|$, o mínimo monótono; ainda assim borra contatos. Custo: um Riemann exato por face e passo.
+\end{itemize}
+\begin{mensagem}
+Godunov responde à pergunta da face do único modo fiel: deixa a física decidir. Roe e HLL tentam dar a mesma resposta mais barato.
+\end{mensagem}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Godunov no tubo de Sod: o que a primeira ordem faz com cada onda}
+\begin{center}
+\includegraphics[width=\textwidth,height=0.56\textheight,keepaspectratio]{figs/godunov_sod.pdf}
+\end{center}
+\vspace{-0.2cm}
+{\footnotesize Choque: 2--3 células e não piora com o tempo (as características convergem para ele e o recomprimem: é \emph{autoconfinante}). Contato: borrado e cada vez mais largo, cerca de $\sqrt{n}$ células após $n$ passos, porque nada o comprime: é um salto apenas transportado, como o degrau da advecção.}
+\end{frame}
+
+\begin{frame}{O teorema de Godunov: o preço da monotonia}
+\begin{teorema}{Teorema de Godunov (1959)}
+Um esquema \textbf{linear}, $u_j^{n+1}=\sum_k c_k\,u_{j+k}^n$ com coeficientes $c_k$ independentes dos dados, que preserva a monotonia dos dados (não cria extremos novos) tem no máximo \textbf{primeira ordem} de precisão.
+\end{teorema}
+\begin{columns}[T]
+\begin{column}{0.52\textwidth}
+\textbf{Prova em três linhas} (advecção, $\nu=a\Delta t/h\notin\mathbb Z$):
+\begin{itemize}
+\item Preservar monotonia $\Leftrightarrow$ $c_k\ge0$ para todo $k$.
+\item Consistência de ordem 2, por Taylor: $\sum_kc_k=1$, $\sum_kk\,c_k=-\nu$, $\sum_kk^2c_k=\nu^2$.
+\item Então $\sum_k(k+\nu)^2c_k=\nu^2-2\nu^2+\nu^2=0$. Com $c_k\ge0$ cada parcela é nula: $c_k=0$ salvo se $k=-\nu$, impossível com $\nu\notin\mathbb Z$. $\square$
+\end{itemize}
+\begin{intuicao}
+Pesos positivos que acertam a média e a velocidade erram a variância para mais: espalham. Ordem 2 exige um peso negativo, que cria extremos (as oscilações do Lax--Wendroff).
+\end{intuicao}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{itemize}
+\item A saída são esquemas \textbf{não lineares}, com pesos que dependem da solução: ordem alta onde ela é suave, ordem 1 perto dos saltos (Encontro 3).
+\item Godunov de primeira ordem é a base de todos eles: o fluxo fica; muda o que se entrega a ele nas faces.
+\end{itemize}
+\end{column}
+\end{columns}
+\end{frame}
+
+
+% =====================================================================
+\section{Solvers de Riemann aproximados}
+
+\begin{frame}{Por que aproximar o solver, e o que não se pode perder}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\begin{itemize}
+\item Custo: em Euler, Newton por face e passo; com equação de estado real (IAPWS) $f_K(p)$ não tem forma fechada; nas sete equações a solução exata nem é conhecida.
+\item Desperdício: o esquema só usa $\RP(0)$ e a média apaga o resto. Basta um fluxo ``certo o bastante''.
+\end{itemize}
+\begin{definicao}{(A) Linearizar}
+Trocar $f'(u)$ por uma matriz constante $\Ah(u_L,u_R)$ na face e resolver o problema \emph{linear} exatamente (Parte 2). É o \textbf{Roe} (1981).
+\end{definicao}
+\begin{definicao}{(B) Simplificar as ondas}
+Supor só duas (\textbf{HLL}) ou três (\textbf{HLLC}) ondas, com velocidades estimadas, e deixar a conservação fixar os estados entre elas (Harten, Lax e van Leer, 1983; Toro et al., 1994).
+\end{definicao}
+\end{column}
+\begin{column}{0.5\textwidth}
+\begin{teorema}{O que um solver aproximado precisa manter}
+\begin{enumerate}
+\item consistência, $\Fh(u,u)=f(u)$;
+\item conservação: o leque aproximado deve ``pesar'' o mesmo que o exato, $\int_{-h/2}^{h/2}\hat u(x,\Delta t)\,\dd x=\frac h2(u_L+u_R)-\Delta t\,[f(u_R)-f(u_L)]$;
+\item upwind por onda: cada onda dissipada com a sua velocidade;
+\item entropia (sem choques de expansão) e positividade ($\rho>0$, $p>0$).
+\end{enumerate}
+\end{teorema}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Roe (1981): linearizar na face do jeito certo}
+\begin{definicao}{Matriz de Roe}
+$\Ah(u_L,u_R)$ é uma \textbf{matriz de Roe} para o fluxo $f$ se
+\begin{enumerate}
+\item[(i)] $\Ah(u_L,u_R)\,(u_R-u_L)=f(u_R)-f(u_L)$ \hfill (conservação: Rankine--Hugoniot exata);
+\item[(ii)] $\Ah$ é diagonalizável com autovalores reais \hfill (hiperbolicidade);
+\item[(iii)] $\Ah(u,u)=f'(u)$ \hfill (consistência).
+\end{enumerate}
+\end{definicao}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\begin{itemize}
+\item (i) é o teorema do valor médio em forma matricial, $\Delta f=\big[\int_0^1f'(u_L+\theta\,\Delta u)\,\dd\theta\big]\Delta u$; a integral raramente tem forma fechada e nem sempre é hiperbólica. Roe achou para Euler uma forma fechada (vetor de parâmetros $z=\sqrt\rho\,(1,u,H)$, em que $u$ e $f$ são quadráticos).
+\item Consequência de (i): num choque ou contato isolado de velocidade $s$, Rankine--Hugoniot dá $\Ah\,\Delta u=s\,\Delta u$: $\Delta u$ é autovetor de $\Ah$ e o problema linear reproduz a descontinuidade \emph{exatamente}.
+\end{itemize}
+\end{column}
+\begin{column}{0.5\textwidth}
+\begin{intuicao}
+Roe pergunta: ``qual matriz constante faria $(u_L,u_R)$ obedecer a Rankine--Hugoniot?'' Com ela, a face vê um problema linear que já carrega a velocidade certa do choque.
+\end{intuicao}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{O fluxo de Roe}
+\begin{definicao}{Fluxo de Roe}
+Com $\Ah=\hat R\hat\Lambda\hat R^{-1}$ e intensidades $\ah=\hat R^{-1}(u_R-u_L)$, resolve-se o problema de Riemann linear exatamente (Parte 2):
+\[
+\Fh^{\mathrm{Roe}}=\tfrac12\big[f(u_L)+f(u_R)\big]-\tfrac12\sum_{p=1}^m|\lh_p|\,\ah_p\,\rh_p
+\;=\;f(u_L)+\sum_{\lh_p<0}\lh_p\,\ah_p\,\rh_p .
+\]
+\end{definicao}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\begin{itemize}
+\item $Q=|\Ah|$: upwind por onda, com as ondas do problema linearizado. A segunda igualdade usa (i): $f(u_R)-f(u_L)=\sum_p\lh_p\ah_p\rh_p$.
+\item Por face: $\Ah$ $\to$ $\lh_p$, $\rh_p$ $\to$ $\ah_p$ $\to$ $\Fh$. Sem iteração: só álgebra. Em Euler, tudo em forma fechada (as médias de Roe, adiante).
+\item Teste de implementação: $\sum_p\ah_p\rh_p=\Delta u$ e $\sum_p\lh_p\ah_p\rh_p=\Delta f$ até o arredondamento.
+\end{itemize}
+\end{column}
+\begin{column}{0.5\textwidth}
+\begin{itemize}
+\item Burgers: $\hat a=\dfrac{u_L+u_R}{2}$. Verifique (i): $\hat a\,(u_R-u_L)=\dfrac{u_R^2-u_L^2}{2}=f(u_R)-f(u_L)$. É a velocidade do choque de Rankine--Hugoniot, e
+\[
+\Fh^{\mathrm{Roe}}=\tfrac12\big[f(u_L)+f(u_R)\big]-\tfrac12\Big|\tfrac{u_L+u_R}{2}\Big|\,(u_R-u_L).
+\]
+\item Nada garante que $\RP$ linearizado seja fisicamente admissível: a entropia (próximos slides) e a positividade (mais adiante) são as duas coisas que a linearização pode perder.
+\end{itemize}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Roe para Burgers: exato nos choques, cego no ponto sônico}
+\begin{columns}[T]
+\begin{column}{0.54\textwidth}
+\begin{itemize}
+\item Choque ($u_L>u_R$): com $s\,\Delta u=\Delta f$ sai $\Fh^{\mathrm{Roe}}=f(u_L)$ se $s>0$ e $f(u_R)$ se $s<0$: \textbf{igual ao Godunov}.
+\item Rarefação com $f'$ de sinal fixo ($0\le u_L<u_R$ ou $u_L<u_R\le0$): também igual ao Godunov.
+\item Rarefação transônica ($u_L<0<u_R$): Godunov dá $f(0)=0$; Roe dá $f(u_L)$ ou $f(u_R)$ conforme o sinal de $\hat a$ e, se $u_L=-u_R$, $Q=|\hat a|=0$: dissipação nula e o salto fica parado. É o choque de expansão do Encontro 1.
+\item Com $u_L=-0.2$, $u_R=1$ (exercício): $\hat a=0.4>0$, $\Fh=f(u_L)$, e sobra em $x=0$ um salto parado de $-0.2$ a $0.2$ dentro do leque: o ``defeito sônico''.
+\end{itemize}
+\end{column}
+\begin{column}{0.46\textwidth}
+\begin{atencao}{O que a linearização não enxerga}
+Ela troca o leque por um único salto de velocidade $\hat a$. Quando as características \emph{divergem} dos dois lados da face ($\lambda(u_L)<0<\lambda(u_R)$), nenhum salto é a resposta certa: a face está dentro do leque e precisa receber uma dissipação da ordem da abertura do leque, $\lambda(u_R)-\lambda(u_L)$.
+\end{atencao}
+\begin{intuicao}
+Roe só sabe falar de descontinuidades; rarefações ele imita por saltos, o que funciona enquanto o salto ``anda'' para um lado só. No ponto sônico ele teria de andar para os dois lados ao mesmo tempo.
+\end{intuicao}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{A correção de entropia}
+\begin{definicao}{Correção de entropia de Harten e Hyman (1983)}
+Para a onda $p$, sejam $\lambda_p^L$ e $\lambda_p^R$ as velocidades características \emph{reais} nos estados à esquerda e à direita da onda no leque linearizado ($u_L$, $u_L^*=u_L+\ah_1\rh_1$, \dots; Burgers: $u_L$ e $u_R$). Se $\lambda_p^L<0<\lambda_p^R$ (onda \textbf{transônica}), o salto único de velocidade $\lh_p$ é trocado por dois, de velocidades $\lambda_p^L$ e $\lambda_p^R$, com frações $\beta_p$ e $1-\beta_p$ da intensidade, $\beta_p=\dfrac{\lambda_p^R-\lh_p}{\lambda_p^R-\lambda_p^L}$ (conserva: $\beta_p\lambda_p^L+(1-\beta_p)\lambda_p^R=\lh_p$). Em $\Fh=f(u_L)+\sum_p\min(\lh_p,0)\,\ah_p\rh_p$, a onda transônica entra com $\beta_p\lambda_p^L$: só a parte que vai para a esquerda cruza a face.
+\end{definicao}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\begin{itemize}
+\item Burgers transônico: $\beta=\tfrac12$ e $\Fh=f(u_L)+\tfrac12u_L(u_R-u_L)=\tfrac12u_Lu_R\le0$: a face recebe dissipação e o leque se abre.
+\item Fora das ondas transônicas nada muda: choques ($\lambda^L>\lh>\lambda^R$) e contatos seguem exatos.
+\end{itemize}
+\end{column}
+\begin{column}{0.5\textwidth}
+\begin{itemize}
+\item Alternativa de Harten (1983): $|\lh_p|\to\frac{\lh_p^2+\delta_p^2}{2\delta_p}$ se $|\lh_p|<\delta_p$, com $\delta_p=\max\{0,\lh_p-\lambda_p^L,\lambda_p^R-\lh_p\}$ a abertura do leque. Em Burgers reproduz o Godunov.
+\end{itemize}
+\begin{mensagem}
+A correção devolve ao Roe a informação de que, numa rarefação, o leque tem largura e a face está dentro dele.
+\end{mensagem}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Godunov, Roe e Rusanov em Burgers: onde coincidem e onde não}
+\begin{center}
+\includegraphics[width=\textwidth,height=0.62\textheight,keepaspectratio]{figs/burgers_godunov_roe.pdf}
+\end{center}
+\vspace{-0.15cm}
+{\footnotesize $N=200$, CFL $=0.8$, $t=0.5$. À esquerda, choque com $s=0.25$: Godunov e Roe (com ou sem correção) coincidem, porque $\hat a=s$; Rusanov, com $Q=\max\{|u_L|,|u_R|\}>|s|$, borra um pouco mais. À direita, rarefação transônica: o Roe sem correção mantém o choque de expansão ($Q=0$ na face sônica); com Harten--Hyman abre o leque como o Godunov.}
+\end{frame}
+
+\begin{frame}{Roe para Euler: as médias de Roe}
+\begin{definicao}{Médias de Roe (gás ideal), com $H=(E+p)/\rho$ a entalpia total específica}
+\[
+\hat u=\frac{\sqrt{\rho_L}\,u_L+\sqrt{\rho_R}\,u_R}{\sqrt{\rho_L}+\sqrt{\rho_R}},\qquad
+\hat H=\frac{\sqrt{\rho_L}\,H_L+\sqrt{\rho_R}\,H_R}{\sqrt{\rho_L}+\sqrt{\rho_R}},\qquad
+\hat c^{\,2}=(\gamma-1)\Big(\hat H-\tfrac12\hat u^2\Big).
+\]
+$\Ah$ é a jacobiana de Euler avaliada em $(\hat u,\hat H,\hat c)$: $\lh_{1,2,3}=\hat u-\hat c,\ \hat u,\ \hat u+\hat c$;\ \
+$\rh_1=(1,\,\hat u-\hat c,\,\hat H-\hat u\hat c)^{\!\top}$, $\rh_2=(1,\,\hat u,\,\tfrac12\hat u^2)^{\!\top}$, $\rh_3=(1,\,\hat u+\hat c,\,\hat H+\hat u\hat c)^{\!\top}$.
+\end{definicao}
+\begin{columns}[T]
+\begin{column}{0.52\textwidth}
+\begin{teorema}{Intensidades das ondas, com $\Delta(\cdot)=(\cdot)_R-(\cdot)_L$}
+\vspace{-0.3cm}
+\[
+{\small\begin{aligned}
+\ah_2&=\frac{\gamma-1}{\hat c^{\,2}}\Big[\Delta\rho\,(\hat H-\hat u^2)+\hat u\,\Delta(\rho u)-\Delta E\Big],\\
+\ah_1&=\frac{1}{2\hat c}\Big[\Delta\rho\,(\hat u+\hat c)-\Delta(\rho u)-\hat c\,\ah_2\Big],\\
+\ah_3&=\Delta\rho-\ah_1-\ah_2 .
+\end{aligned}}
+\]
+\end{teorema}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{itemize}
+\item Por face: médias $\to$ $\lh_p$, $\rh_p$, $\ah_p$ $\to$ correção de entropia nas ondas 1 e 3 $\to$ $\Fh=\frac12(f_L+f_R)-\frac12\sum_p|\lh_p|\ah_p\rh_p$.
+\item Os pesos $\sqrt\rho$ são o que faz (i) valer exatamente para o gás ideal. Gás real (IAPWS): a média exige derivadas da equação de estado (Glaister, 1988; Vinokur e Montagné, 1990). Sete equações: os produtos não conservativos entram na conta (Encontro 4).
+\end{itemize}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Positividade: o que o Roe não garante}
+\begin{center}
+\includegraphics[width=\textwidth,height=0.35\textheight,keepaspectratio]{figs/roe_123.pdf}
+\end{center}
+\vspace{-0.1cm}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+{\small \textbf{Problema 123} (Einfeldt et al., 1991): $\rho=1$ e $p=0.4$ dos dois lados, $u=-2$ à esquerda e $+2$ à direita. Duas rarefações fortes se afastam; no meio, $p^*=0.0019$ e $\rho^*=0.022$: quase vácuo, mas positivo.}
+\end{column}
+\begin{column}{0.5\textwidth}
+{\small O Roe lineariza: $\hat u=0$, $\hat c^{\,2}=(\gamma-1)\hat H=1.36$, e o estado estrela do problema \emph{linear} tem $\rho^*=1+\ah_1=1-2/\hat c<0$. O fluxo de momento na face central sai $4.4-2\hat c=2.07$ em vez de $p^*=0.002$; no primeiro passo a célula vizinha fica com $p<0$. Baixar a CFL só adia; a correção de entropia não ajuda: o problema é a linearização.}
+\end{column}
+\end{columns}
+\begin{mensagem}
+Roe é o mais preciso dos aproximados e o menos robusto: pode sair do conjunto admissível. No bifásico com fase evanescente isso pesa mais que a nitidez do contato.
+\end{mensagem}
+\end{frame}
+
+\begin{frame}{A outra família: HLL, duas ondas e conservação no leque}
+\begin{definicao}{HLL (Harten, Lax e van Leer, 1983)}
+Só duas ondas, com velocidades $S_L<S_R$ \emph{estimadas}, e um único estado entre elas. A conservação no leque fixa o estado e o fluxo:
+\[
+u^{\mathrm{hll}}=\frac{S_Ru_R-S_Lu_L-(f_R-f_L)}{S_R-S_L},\qquad
+\Fh^{\mathrm{hll}}=\frac{S_Rf_L-S_Lf_R+S_LS_R\,(u_R-u_L)}{S_R-S_L}\quad(S_L<0<S_R),
+\]
+com $\Fh=f_L$ se $S_L\ge0$ e $\Fh=f_R$ se $S_R\le0$. Velocidades (Einfeldt, 1988): $S_L=\min\{u_L-c_L,\hat u-\hat c\}$, $S_R=\max\{u_R+c_R,\hat u+\hat c\}$.
+\end{definicao}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\begin{itemize}
+\item Rusanov é o HLL com $S_R=-S_L=\max(|u|+c)$ ($Q=\max_p|\lambda_p|$); Lax--Friedrichs, com $S_R=-S_L=h/\Delta t$.
+\item Positividade garantida com essas velocidades (Einfeldt et al., 1991) e entropia respeitada: robusto e barato. Preço: o contato vira uma média entre $S_L$ e $S_R$ e borra muito.
+\end{itemize}
+\end{column}
+\begin{column}{0.5\textwidth}
+\begin{intuicao}
+HLL troca ``quais são as ondas?'' por ``qual é a onda mais rápida de cada lado?'' e deixa a conservação determinar o meio. Com $S_L$, $S_R$ pelo menos tão rápidas quanto as ondas reais, o estado do meio é uma média de estados físicos: por isso é positivo.
+\end{intuicao}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{HLLC: o contato de volta}
+\begin{definicao}{HLLC (Toro, Spruce e Speares, 1994)}
+Três ondas: $S_L$, $S_R$ como no HLL e a onda do contato, com velocidade
+\[
+S_*=\frac{p_R-p_L+\rho_Lu_L\,(S_L-u_L)-\rho_Ru_R\,(S_R-u_R)}{\rho_L\,(S_L-u_L)-\rho_R\,(S_R-u_R)},
+\]
+e dois estados estrela $u^*_L$, $u^*_R$, com o mesmo $p^*$ e $u^*=S_*$, obtidos de Rankine--Hugoniot através de $S_L$ e de $S_R$:
+\[
+\Fh=f_L+S_L\,(u^*_L-u_L)\ \ \text{se } S_L<0\le S_*,\qquad \Fh=f_R+S_R\,(u^*_R-u_R)\ \ \text{se } S_*<0<S_R .
+\]
+\end{definicao}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\begin{itemize}
+\item O contato é dissipado com $|S_*|\approx|u^*|$, e não com $c$: nítido como no Roe, sem linearizar.
+\item Positividade preservada com $S_L$, $S_R$ adequados; sem choques de expansão. É o fluxo usado no THM/MOOSE e no RELAP-7 (Encontros 3 e 4).
+\end{itemize}
+\end{column}
+\begin{column}{0.5\textwidth}
+\begin{intuicao}
+HLLC põe de volta a única onda que o HLL perde e que mais importa nos transientes lentos: a que viaja com o fluido, carregando densidade, temperatura e, no bifásico, a fração de vazio.
+\end{intuicao}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Os fluxos no tubo de Sod: a diferença está no contato}
+\begin{center}
+\includegraphics[width=\textwidth,height=0.64\textheight,keepaspectratio]{figs/sod_fluxos.pdf}
+\end{center}
+\vspace{-0.15cm}
+{\footnotesize Sod, $N=200$, $t=0.2$, CFL $=0.8$. Godunov exato e Roe são indistinguíveis; HLLC fica entre eles e o HLL; Rusanov é o mais borrado. A diferença concentra-se no contato: para uma onda que viaja a $u^*=0.93$, Roe e HLLC dissipam com $|u^*|$, HLL e Rusanov com algo da ordem de $c$. Erro $L^1$ em $\rho$: Godunov $9.4\times10^{-3}$, Roe $9.5\times10^{-3}$, HLLC $9.8\times10^{-3}$, HLL $1.05\times10^{-2}$, Rusanov $1.56\times10^{-2}$.}
+\end{frame}
+
+\begin{frame}{Comparação dos fluxos numéricos}
+\begin{center}\scriptsize
+\begin{tabular}{@{}l l l l l l@{}}
+\toprule
+fluxo & dissipação $Q$ & ondas que resolve & entropia & positividade & custo\\
+\midrule
+Lax--Friedrichs & $h/\Delta t$ & nenhuma & sim & sim & mínimo\\
+Rusanov & $\max_p|\lambda_p|$ & nenhuma & sim & sim & mínimo\\
+HLL & $S_L$, $S_R$ & as duas extremas & sim & sim (Einfeldt) & baixo\\
+HLLC & $S_L$, $S_*$, $S_R$ & três (em Euler, todas) & sim & sim ($S_L$, $S_R$ adequados) & baixo\\
+Roe & $|\Ah|$ & todas, linearizadas & só com correção & \textbf{não} & médio\\
+Godunov exato & a física & todas & sim & sim & alto (Newton por face)\\
+\bottomrule
+\end{tabular}
+\end{center}
+\vspace{0.1cm}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\begin{itemize}
+\item Todos são de primeira ordem e todos borram o contato; diferem na constante. Com reconstrução de ordem alta (Encontro 3) a diferença entre eles diminui: a reconstrução passa a importar mais que o solver.
+\end{itemize}
+\end{column}
+\begin{column}{0.5\textwidth}
+\begin{itemize}
+\item Onde a positividade manda (bifásico com fase evanescente, cavitação, vácuo): HLL/HLLC. Onde a nitidez manda e o estado fica longe do vácuo: Roe.
+\end{itemize}
+\end{column}
+\end{columns}
+\begin{mensagem}
+Não existe ``o melhor fluxo'': existe o fluxo certo para o que se precisa garantir. Para o nosso problema, garantir é ficar no conjunto admissível.
+\end{mensagem}
+\end{frame}
+
+
+% =====================================================================
+\section{Síntese}
+
+\begin{frame}{Síntese em dez linhas}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\begin{enumerate}
+\item Volumes finitos: a única incógnita é o fluxo na face. Esquema \emph{é} fluxo numérico.
+\item Todo fluxo é média central menos $\tfrac12Q\,\Delta u$: $Q$ é a viscosidade do esquema, de $\nu|a|$ (Lax--Wendroff) a $h/\Delta t$ (Lax--Friedrichs).
+\item Monótono ($|a|\le Q\le h/\Delta t$): sem extremos novos, TVD, entropia. Mas linear e monótono é primeira ordem (Godunov).
+\item Upwind: $Q=|a|$; em sistemas lineares, $Q=|A|$: cada onda dissipada com a sua $|\lambda_p|$, a solução exata do Riemann linear.
+\item Burgers: choque se $u_L>u_R$, leque se $u_L<u_R$; o valor na face é o ponto sônico quando o leque a contém.
+\end{enumerate}
+\end{column}
+\begin{column}{0.5\textwidth}
+\begin{enumerate}\setcounter{enumi}{5}
+\item Euler: três ondas, uma equação escalar $f(p^*)=0$ resolvida por Newton, amostragem em $x/t=0$.
+\item Godunov: reconstruir, evoluir exatamente, fazer a média. O erro está só na média; $\Fh=f(\RP(0))$.
+\item Roe: a matriz constante que faz $(u_L,u_R)$ obedecer a Rankine--Hugoniot. Exato em saltos isolados; cego no ponto sônico; pode perder a positividade.
+\item HLL e HLLC: duas ou três ondas e conservação no leque. Positivos e robustos; HLL borra o contato, HLLC o recupera.
+\item O fluxo fica. No Encontro 3 muda o que se entrega a ele: reconstrução limitada, rDG($P_0P_1$), positividade.
+\end{enumerate}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Exercício para o próximo encontro (Python)}
+\begin{exampleblock}{Problema A: Burgers, $\pd ut+\pd{}{x}\big(\tfrac{u^2}{2}\big)=0$ em $[-1,1]$, contornos transmissivos, $N=200$, CFL $=0.8$, até $t=0.5$}
+Dados de Riemann com salto em $x=0$: (a) $u_L=1$, $u_R=-0.5$; (b) $u_L=-1$, $u_R=1$; (c) $u_L=-0.2$, $u_R=1$.
+\end{exampleblock}
+\vspace{-0.15cm}
+\begin{enumerate}\footnotesize
+\item \textbf{Fluxos escalares.} Programe Godunov (fórmula do $\max/\min$), Roe sem correção, Roe com Harten--Hyman e Rusanov; plote os quatro com a exata em (a), (b) e (c). Em (c), descreva o que o Roe sem correção faz em $x=0$ e explique com $\hat a$ e $Q$.
+\end{enumerate}
+\vspace{-0.15cm}
+\begin{exampleblock}{Problema B: Euler (gás ideal, $\gamma=1.4$) em $[0,1]$, contornos transmissivos, CFL $=0.8$}
+Sod: $(\rho,u,p)=(1,0,1)$ para $x<0.5$ e $(0.125,0,0.1)$ para $x>0.5$, até $t=0.2$. Problema 123: $(1,-2,0.4)$ e $(1,2,0.4)$, até $t=0.15$.
+\end{exampleblock}
+\vspace{-0.15cm}
+\begin{enumerate}\footnotesize\setcounter{enumi}{1}
+\item \textbf{Fluxos para Euler.} Programe Roe com Harten--Hyman, HLL (velocidades de Einfeldt) e Rusanov; use o solver exato fornecido (\texttt{riemann\_exato.py}) como referência. Em Sod, com $N=100,200,400,800$, tabele $E_N=h\sum_j|\rho_j-\rho(x_j,0.2)|$ e $E_N/E_{2N}$ (esperado entre $\sqrt2$ e $2$) e a largura do contato (células entre $10\%$ e $90\%$ do salto de $\rho$).
+\item \textbf{Positividade.} No problema 123 com $N=200$, rode HLL e Roe: registre em que passo o Roe produz $p<0$ e confira à mão o valor $\rho^*=1-2/\hat c$ do slide. Repita com CFL $=0.2$ e $0.05$: o que muda?
+\end{enumerate}
+{\footnotesize Entrega antes do Encontro 3: script \texttt{.py}, figuras e uma página com tabelas e comentários. Os scripts das figuras destes slides ficam disponíveis.}
+\end{frame}
+
+\begin{frame}{Referências}
+\scriptsize
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\begin{itemize}
+\item S. K. Godunov. A difference method for numerical calculation of discontinuous solutions of the equations of hydrodynamics. \emph{Mat. Sb.} 47 (1959) 271--306.
+\item P. L. Roe. Approximate Riemann solvers, parameter vectors, and difference schemes. \emph{J. Comput. Phys.} 43 (1981) 357--372.
+\item A. Harten, P. D. Lax, B. van Leer. On upstream differencing and Godunov-type schemes for hyperbolic conservation laws. \emph{SIAM Rev.} 25 (1983) 35--61.
+\item A. Harten, J. M. Hyman. Self adjusting grid methods for one-dimensional hyperbolic conservation laws. \emph{J. Comput. Phys.} 50 (1983) 235--269.
+\item A. Harten. High resolution schemes for hyperbolic conservation laws. \emph{J. Comput. Phys.} 49 (1983) 357--393.
+\item B. Einfeldt. On Godunov-type methods for gas dynamics. \emph{SIAM J. Numer. Anal.} 25 (1988) 294--318.
+\item B. Einfeldt, C. D. Munz, P. L. Roe, B. Sjögreen. On Godunov-type methods near low densities. \emph{J. Comput. Phys.} 92 (1991) 273--295.
+\item E. F. Toro, M. Spruce, W. Speares. Restoration of the contact surface in the HLL-Riemann solver. \emph{Shock Waves} 4 (1994) 25--34.
+\end{itemize}
+\end{column}
+\begin{column}{0.5\textwidth}
+\begin{itemize}
+\item V. V. Rusanov. Calculation of interaction of non-steady shock waves with obstacles. \emph{J. Comput. Math. Phys. USSR} 1 (1961) 267--279.
+\item B. Engquist, S. Osher. One-sided difference approximations for nonlinear conservation laws. \emph{Math. Comp.} 36 (1981) 321--351.
+\item S. Osher. Riemann solvers, the entropy condition, and difference approximations. \emph{SIAM J. Numer. Anal.} 21 (1984) 217--235.
+\item A. Harten, J. M. Hyman, P. D. Lax. On finite-difference approximations and entropy conditions for shocks. \emph{Comm. Pure Appl. Math.} 29 (1976) 297--322.
+\item M. G. Crandall, A. Majda. Monotone difference approximations for scalar conservation laws. \emph{Math. Comp.} 34 (1980) 1--21.
+\item P. Glaister. An approximate linearised Riemann solver for the Euler equations for real gases. \emph{J. Comput. Phys.} 74 (1988) 382--408.
+\item R. J. LeVeque. \emph{Finite Volume Methods for Hyperbolic Problems}. Cambridge University Press, 2002.
+\item E. F. Toro. \emph{Riemann Solvers and Numerical Methods for Fluid Dynamics}. 3.\textsuperscript{a} ed., Springer, 2009.
+\end{itemize}
+\end{column}
+\end{columns}
+\end{frame}
+
+\end{document}
