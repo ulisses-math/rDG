@@ -207,9 +207,9 @@ $|A|$ dissipa cada onda com a sua própria $|\lambda_p|$: nem mais, nem menos. R
 \begin{definicao}{Fluxo de Godunov para Burgers}
 O valor na face é $\RP(0)$, a solução em $x/t=0$:
 \[
-\Fh^{\mathrm G}(u_L,u_R)=\max\big\{f(u_L^+),\,f(u_R^-)\big\},\quad u^\pm=\max(\pm u,0)\cdot(\pm1).
+\Fh^{\mathrm G}(u_L,u_R)=\max\big\{f(u_L^+),\,f(u_R^-)\big\},
 \]
-(Caso convexo geral: $\min_{[u_L,u_R]}f$ se $u_L\le u_R$, $\max_{[u_R,u_L]}f$ se $u_L>u_R$.)
+com $u^+=\max(u,0)$ e $u^-=\min(u,0)$. (Caso convexo geral: $\min_{[u_L,u_R]}f$ se $u_L\le u_R$, $\max_{[u_R,u_L]}f$ se $u_L>u_R$.)
 \end{definicao}
 \end{column}
 \begin{column}{0.5\textwidth}
@@ -401,9 +401,6 @@ Com $\Ah=\hat R\hat\Lambda\hat R^{-1}$ e intensidades $\ah=\hat R^{-1}(u_R-u_L)$
 \begin{atencao}{O que a linearização não enxerga}
 Ela troca o leque por um único salto. Quando as características \emph{divergem} dos dois lados da face ($\lambda(u_L)<0<\lambda(u_R)$), nenhum salto é a resposta: a face está dentro do leque e precisa de uma dissipação da ordem da abertura dele.
 \end{atencao}
-\begin{intuicao}
-Roe só sabe falar de descontinuidades; rarefações ele imita por saltos, o que funciona enquanto o salto ``anda'' para um lado só.
-\end{intuicao}
 \end{column}
 \end{columns}
 \end{frame}
