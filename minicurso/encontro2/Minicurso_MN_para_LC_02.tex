@@ -493,7 +493,7 @@ Um esquema \textbf{linear}, $u_j^{n+1}=\sum_k c_k\,u_{j+k}^n$ com coeficientes $
 \begin{itemize}
 \item Preservar monotonia $\Leftrightarrow$ $c_k\ge0$ para todo $k$.
 \item Consistência de ordem 2, por Taylor: $\sum_kc_k=1$, $\sum_kk\,c_k=-\nu$, $\sum_kk^2c_k=\nu^2$.
-\item Então $\sum_k(k+\nu)^2c_k=\nu^2-2\nu^2+\nu^2=0$. Com $c_k\ge0$ cada parcela é nula: $c_k=0$ salvo se $k=-\nu$, impossível com $\nu\notin\mathbb Z$. $\square$
+\item Então $\sum_k(k+\nu)^2c_k=\nu^2-2\nu^2+\nu^2=0$; com $c_k\ge0$, $c_k=0$ salvo se $k=-\nu$, impossível para $\nu\notin\mathbb Z$. $\square$
 \end{itemize}
 \begin{intuicao}
 Pesos positivos que acertam a média e a velocidade erram a variância para mais: espalham. Ordem 2 exige um peso negativo, que cria extremos (as oscilações do Lax--Wendroff).
@@ -551,7 +551,7 @@ $\Ah(u_L,u_R)$ é uma \textbf{matriz de Roe} para o fluxo $f$ se
 \begin{columns}[T]
 \begin{column}{0.5\textwidth}
 \begin{itemize}
-\item (i) é o teorema do valor médio em forma matricial, $\Delta f=\big[\int_0^1f'(u_L+\theta\,\Delta u)\,\dd\theta\big]\Delta u$; a integral raramente tem forma fechada e nem sempre é hiperbólica. Roe achou para Euler uma forma fechada (vetor de parâmetros $z=\sqrt\rho\,(1,u,H)$, em que $u$ e $f$ são quadráticos).
+\item (i) é o teorema do valor médio em forma matricial, $\Delta f=\big[\int_0^1f'(u_L+\theta\,\Delta u)\,\dd\theta\big]\Delta u$; a integral raramente tem forma fechada e nem sempre é hiperbólica. Roe achou para Euler uma forma fechada (via o vetor de parâmetros $z=\sqrt\rho\,(1,u,H)$).
 \item Consequência de (i): num choque ou contato isolado de velocidade $s$, Rankine--Hugoniot dá $\Ah\,\Delta u=s\,\Delta u$: $\Delta u$ é autovetor de $\Ah$ e o problema linear reproduz a descontinuidade \emph{exatamente}.
 \end{itemize}
 \end{column}
