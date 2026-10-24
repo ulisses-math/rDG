@@ -294,7 +294,7 @@ O nome técnico dessa propriedade é TVD (\emph{total variation diminishing}): a
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=\textwidth]{figs/fig2_minmod.png}
-\caption{\textbf{Passo 1 em ação}, sobre as médias da densidade de Sod em $t=0{,}2$ (24 células). (a) As duas diferenças de cada célula, $\Delta_{+i}$ (azul) e $\Delta_{-i}$ (laranja); nos trechos constantes elas são nulas. (b) A inclinação escolhida: o minmod (círculos roxos) fica sempre com a menor das duas em módulo, enquanto a diferença central (quadrados cinza) fica com a média; as cruzes vermelhas marcam as células em que o minmod zerou a inclinação, porque um dos vizinhos é constante ou os sinais discordam, como nas duas células que contêm os saltos. (c) A reconstrução linear resultante (roxo) sobre as médias (azul-claro) e a solução exata (tracejada): nas regiões suaves a reta acompanha a curva; nas células dos saltos ela é horizontal.}
+\caption{\textbf{Passo 1 em ação}, sobre as médias da densidade de Sod em $t=0{,}2$ numa malha grossa, de 16 células, para que cada célula seja visível. (a) As duas diferenças de cada célula, $\Delta_{+i}$ (azul) e $\Delta_{-i}$ (laranja); nos trechos constantes elas são nulas. (b) A inclinação escolhida: o minmod (círculos roxos) fica sempre com a menor das duas em módulo, enquanto a diferença central (quadrados cinza) fica com a média; as cruzes vermelhas marcam as células em que o minmod zerou a inclinação, porque um dos vizinhos é constante ou os sinais discordam, como nas duas células que contêm os saltos. (c) A reconstrução linear resultante (roxo) sobre as médias (azul-claro) e a solução exata (tracejada): nas regiões suaves a reta acompanha a curva; nas células dos saltos ela é horizontal.}
 \label{fig:minmod}
 \end{figure}
 
@@ -344,7 +344,7 @@ Na equação de Burgers, se $u^->u^+$, forma-se um choque; se $u^-<u^+$, uma rar
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=\textwidth]{figs/fig3_interfaces.png}
-\caption{\textbf{Passo 2.} Esquerda: a reconstrução P1 de cada célula (roxo) e os dois estados em cada interface, $u^-$ (triângulo laranja, vindo da célula da esquerda) e $u^+$ (triângulo verde, vindo da célula da direita); o segmento vermelho entre eles é o salto. Onde a solução é suave os dois triângulos quase coincidem; nas células do contato e do choque, em que o minmod zerou a inclinação, o salto é grande. Direita: zoom em três interfaces com os valores numéricos dos saltos; cada par $(u^-,u^+)$ é o dado de um problema de Riemann local.}
+\caption{\textbf{Passo 2}, na mesma malha de 16 células. (a) Cada célula tem a sua reta, em cores alternadas para separar uma da outra; onde duas retas vizinhas não se encontram há um salto, em vermelho. Nas regiões constantes as retas se emendam e não há salto. (b) O tamanho do salto em cada interface, sem reconstrução (cinza, salto entre médias) e com reconstrução (vermelho, salto entre $u^-$ e $u^+$): na rarefação a reconstrução reduz o salto a uma fração do original; no contato, em que o minmod zerou a inclinação, o salto continua grande. (c) e (d) Zoom em duas interfaces, com os valores numéricos de $\bar u$, $\hat u$, $u^-$ e $u^+$; cada par $(u^-,u^+)$ é o dado de um problema de Riemann local.}
 \label{fig:interfaces}
 \end{figure}
 
@@ -610,7 +610,7 @@ Resumindo, para \textbf{cada iteração de Newton} dentro de um passo BDF2:
 \textbf{Passo} & \textbf{O que faz} & \textbf{Onde está ilustrado}\\
 \midrule
 \textcircled{1} Reconstrução & $\uh_i=\tfrac12\,\mathrm{minmod}(\Delta_+,\Delta_-)$ & Figura~\ref{fig:minmod}: retas roxas (P1)\\
-\textcircled{2} Interfaces & $u^-=\ub_i+\uh_i$,\ \ $u^+=\ub_{i+1}-\uh_{i+1}$ & Figura~\ref{fig:interfaces}: triângulos $u^-$, $u^+$\\
+\textcircled{2} Interfaces & $u^-=\ub_i+\uh_i$,\ \ $u^+=\ub_{i+1}-\uh_{i+1}$ & Figura~\ref{fig:interfaces}: saltos $u^- - u^+$\\
 \textcircled{3} Fluxo HLLC & $\fh=\mathrm{HLLC}(u^-,u^+)$ & Figura~\ref{fig:hllc}: ramos e regimes\\
 \textcircled{4} Atualização BDF2 & $3\ub^{n+1}-4\ub^n+\ub^{n-1}=2\Delta t\,L(\ub^{n+1})$ & Figura~\ref{fig:tempo}: balanço e estêncil\\
 \bottomrule
@@ -660,11 +660,24 @@ A solução exata em $t=0{,}2$ contém três estruturas distintas:
 
 A solução exata é conhecida: a pressão e a velocidade entre as ondas valem $p^*=0{,}303$ e $v^*=0{,}927$, a cabeça da rarefação viaja a $-1{,}18$, o contato a $0{,}93$ e o choque a $1{,}75$. Como o choque é a onda mais rápida, em $t=0{,}2$ ele está em $x=0{,}85$, o contato em $x=0{,}69$ e a rarefação ocupa $0{,}26<x<0{,}49$. É com essa solução que comparamos os resultados numéricos.
 
+\subsection{FV padrão contra rDG(P0P1)}
+
+A melhor maneira de ver o que a reconstrução compra é rodar o mesmo problema duas vezes, mudando \emph{só} a reconstrução. Na Figura~\ref{fig:sod} as duas soluções usam a mesma malha ($N=100$), o mesmo fluxo HLLC, o mesmo BDF2 e o mesmo passo de tempo ($\mathrm{CFL}=1$). A única diferença é que o FV padrão entrega ao HLLC as médias das células (inclinação nula, P0), enquanto o rDG(P0P1) entrega os valores de face da reta reconstruída com minmod.
+
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=\textwidth]{figs/fig6_sod.png}
-\caption{Resultado do rDG(P0P1) + HLLC + minmod + BDF2 para o problema de Sod ($t=0{,}2$, $\mathrm{CFL}=1$) com três resoluções, nas quatro variáveis de interesse. A convergência com o refino da malha é visível em todas as estruturas: rarefação (esquerda), contato (centro) e choque (direita). O choque ocupa duas ou três células em qualquer malha; o contato é a estrutura mais borrada, como esperado; a energia interna, que o salta com amplitude grande, é a variável em que isso mais aparece. O pequeno sobressalto de velocidade e pressão logo atrás do choque é o erro de partida do BDF2 no instante inicial, quando o salto ainda ocupa uma célula.}
+\caption{Tubo de Sod em $t=0{,}2$ com $N=100$: FV padrão de primeira ordem (quadrados cinza) contra rDG(P0P1) + minmod (círculos roxos), com o mesmo fluxo HLLC e o mesmo integrador. Nas quatro variáveis o rDG(P0P1) fica mais perto da solução exata: as quinas da rarefação ficam mais vivas, o contato ocupa menos células e o choque fica mais íngreme. A diferença é mais visível na energia interna, que salta muito no contato. O pequeno sobressalto de velocidade e pressão logo atrás do choque é o erro de partida do BDF2 no instante inicial, quando o salto ainda ocupa uma célula.}
 \label{fig:sod}
+\end{figure}
+
+A Figura~\ref{fig:refino} amplia as três ondas e acrescenta uma malha quatro vezes mais fina. O resultado resume o tutorial numa imagem: \textbf{o FV padrão com 400 células fica, grosso modo, tão bom quanto o rDG(P0P1) com 100}. No contato o rDG com 100 células chega a ficar à frente do P0 com 400. Como as duas variantes custam quase o mesmo por célula, a reconstrução reduz o custo de uma dada precisão por um fator próximo de quatro em uma dimensão (e muito mais em duas ou três).
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{figs/fig7_refino.png}
+\caption{Zoom na densidade de Sod nas três ondas, para P0 (cinza) e rDG(P0P1) (roxo) com $N=100$ (marcadores grandes) e $N=400$ (pontos). (a) Rarefação: o rDG(P0P1) com 100 células já acompanha a solução exata; o P0 precisa de 400. (b) Contato: é a onda mais borrada; o rDG com 100 células é comparável ao P0 com 400. (c) Choque: os dois esquemas capturam o choque em poucas células, porque ali o minmod degenera para P0; a vantagem do rDG aparece na transição para os patamares.}
+\label{fig:refino}
 \end{figure}
 
 \subsection{Convergência com a malha}
@@ -699,7 +712,7 @@ Três lições saem dos números. No problema suave, o P0 reduz o erro por um fa
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\textwidth]{figs/fig7_convergencia.png}
+\includegraphics[width=\textwidth]{figs/fig8_convergencia.png}
 \caption{Convergência com a malha e efeito do passo de tempo. (a) Onda de densidade suave: P0 segue a referência de primeira ordem, o rDG(P0P1) com minmod aproxima-se da segunda ordem e sem limitador a atinge. (b) Tubo de Sod: as descontinuidades reduzem a ordem observada dos dois métodos, mas a reconstrução mantém o erro cerca de três vezes menor. (c) O mesmo problema com $N=100$ e dois passos de tempo: com $\mathrm{CFL}=5$ o método continua estável, porém o contato e o choque ficam espalhados por muito mais células. Estabilidade incondicional não é precisão incondicional.}
 \label{fig:convergencia}
 \end{figure}

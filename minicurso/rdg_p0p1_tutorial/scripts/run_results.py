@@ -15,6 +15,13 @@ for CFL in (1.0, 5.0):
         out[f"sod_{N}_{CFL}_x"] = x; out[f"sod_{N}_{CFL}_rho"] = rho; out[f"sod_{N}_{CFL}_v"] = v; out[f"sod_{N}_{CFL}_p"] = p
         rex = sod_exact_average(x, dx, 0.2)
         print(f"Sod CFL={CFL} N={N}: passos={len(it)}, E1(rho)={dx*np.sum(np.abs(rho-rex)):.3e}, {time.time()-t0:.1f}s")
+# --- Sod com FV padrao (P0), para a comparacao direta
+for N in (100, 400):
+    x, dx = mesh(N)
+    U, dt, it = time_advance(sod_initial(x), dx, 0.2, CFL=1.0, limiter="zero")
+    rho, v, p = conserved_to_primitive(U)
+    out[f"sodP0_{N}_x"] = x; out[f"sodP0_{N}_rho"] = rho; out[f"sodP0_{N}_v"] = v; out[f"sodP0_{N}_p"] = p
+    print(f"Sod P0 N={N}: passos={len(it)}")
 # --- convergencia em Sod: P0 vs P0P1, CFL = 1
 Ns = np.array([50, 100, 200, 400, 800, 1600])
 for lim in ("zero", "minmod"):
