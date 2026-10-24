@@ -119,7 +119,7 @@ Vale a pena ver essa frase escrita em fórmula, porque é dela que nasce o méto
 \begin{equation}\label{eq:balanco}
 \frac{d}{dt}\int_a^b u(x,t)\,dx=f\big(u(a,t)\big)-f\big(u(b,t)\big).
 \end{equation}
-Esta é a \textbf{forma integral} da lei de conservação: ``o que há dentro só muda pelo que atravessa as fronteiras''. Ela tem uma vantagem decisiva sobre \eqref{eq:lei}: não pede que $u$ seja derivável. Quando a solução desenvolve um salto (um choque), a forma diferencial perde o sentido, mas a forma integral continua válida. É por isso que os métodos de volumes finitos partem de \eqref{eq:balanco}, e não de \eqref{eq:lei}.
+Esta é a \textbf{forma integral} da lei de conservação: ``o que há dentro só muda pelo que atravessa as fronteiras''. Ela tem uma vantagem decisiva sobre \eqref{eq:lei}: não pede que $u$ seja derivável. Quando a solução desenvolve um salto (um choque), a forma diferencial perde o sentido, mas a forma integral continua válida. É por isso que os métodos de volumes finitos partem de \eqref{eq:balanco}, não de \eqref{eq:lei}.
 
 Uma última observação sobre \eqref{eq:lei}. Pela regra da cadeia, $\partial_x f(u)=f'(u)\,\partial_xu$, de modo que a equação pode ser lida como $\partial_tu+f'(u)\,\partial_xu=0$: a informação é transportada com a \textbf{velocidade característica} $f'(u)$. Essa velocidade decide tudo o que vem depois: para onde a informação viaja, qual lado da interface ``manda'' e qual passo de tempo um método explícito poderia usar.
 
@@ -129,7 +129,7 @@ O exemplo mais simples e instrutivo de lei de conservação não-linear é a \te
 \begin{equation}\label{eq:burgers}
 \pd{u}{t}+\pd{}{x}\left(\frac{u^2}{2}\right)=0
 \end{equation}
-Aqui o fluxo é $f(u)=\tfrac12u^2$, e a ``velocidade de propagação'' é $f'(u)=u$: quanto maior o valor de $u$, mais rápido ele se propaga. Essa não-linearidade faz com que perfis suaves possam \emph{quebrar} e formar \textbf{choques} (descontinuidades) em tempo finito --- um dos grandes desafios que todo método numérico precisa enfrentar.
+Aqui o fluxo é $f(u)=\tfrac12u^2$; a ``velocidade de propagação'' é $f'(u)=u$: quanto maior o valor de $u$, mais rápido ele se propaga. Essa não-linearidade faz com que perfis suaves possam \emph{quebrar} e formar \textbf{choques} (descontinuidades) em tempo finito --- um dos grandes desafios que todo método numérico precisa enfrentar.
 
 \begin{intuicao}
 Imagine carros numa estrada em que cada carro anda com velocidade igual ao seu ``valor de $u$''. Os carros rápidos, atrás, alcançam os lentos, na frente; a fila se comprime até virar uma parede: o choque. Para um perfil inicial $u_0(x)$, isso acontece no instante $t_b=-1/\min u_0'(x)$, o momento em que duas características se cruzam pela primeira vez. Depois de $t_b$ a solução suave deixa de existir; só a forma integral \eqref{eq:balanco} dá sentido ao que acontece; ela fixa a velocidade do choque em $s=\tfrac12(u_L+u_R)$, a média dos valores dos dois lados.
@@ -709,7 +709,7 @@ Três lições saem dos números. No problema suave, o P0 reduz o erro por um fa
 
 \subsection{O que aprendemos}
 \begin{enumerate}[leftmargin=2.5em,itemsep=3pt]
-\item \textbf{Leis de conservação} descrevem o transporte de quantidades físicas; o \textbf{fluxo} $f(u)$ mede quanto passa por cada ponto. A forma integral continua válida nos choques, e é dela que o método parte.
+\item \textbf{Leis de conservação} descrevem o transporte de quantidades físicas; o \textbf{fluxo} $f(u)$ mede quanto passa por cada ponto. A forma integral continua válida nos choques; é dela que o método parte.
 \item \textbf{Volumes finitos} discretizam a forma integral: a média celular muda conforme os fluxos nas interfaces. O que sai de uma célula entra na vizinha, logo o método é conservativo e os choques andam na velocidade certa.
 \item \textbf{rDG(P0P1)} ganha segunda ordem ao reconstruir uma reta (P1) a partir das médias (P0), em vez de evoluir incógnitas adicionais como no DG puro. O coeficiente $\uh_i$ é a variação do centro até a face.
 \item O \textbf{minmod} limita as inclinações para evitar oscilações, degenerando para P0 perto de descontinuidades. É um esquema TVD: nenhum extremo novo é criado.
